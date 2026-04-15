@@ -1,25 +1,33 @@
 
 
-## Running Event Ticketing Dashboard
+## Add Login Page with Supabase Auth
 
-A clean, minimal dashboard for managing running events and their ticketing, using mock data.
+### Overview
+Create a login/signup page with email & password authentication using Lovable Cloud (Supabase). Includes a profiles table for storing user display names and a protected route system.
 
-### Pages & Layout
-- **Sidebar navigation** with collapsible menu (Events, Participants)
-- **Events page** (default `/`): List of running events as cards showing name, date, location, registration count, and revenue. CRUD actions: create, edit, delete events via modal/dialog forms.
-- **Event detail page** (`/events/:id`): 
-  - **Stats section**: KPI cards showing total registrations, revenue, tickets sold by type, remaining capacity
-  - **Ticket configuration**: Table of ticket types (e.g. 5K, 10K, Half Marathon) with name, price, capacity, sold count. Add/edit/delete ticket types.
-  - **Participant list**: Searchable, filterable table of registered participants (name, email, ticket type, registration date, status). 
+### What will be built
 
-### Mock Data
-- 3-4 sample events with varied dates and locations
-- 2-3 ticket types per event
-- 15-20 sample participants spread across events
+1. **Database setup** (migrations):
+   - `profiles` table (id, username, avatar_url, created_at) linked to `auth.users` with RLS policies
+   - Trigger to auto-create a profile on signup
 
-### Design
-- Clean & minimal with the existing shadcn/ui components
-- Card-based KPI stats with icons
-- Tables with search input and filters
-- Forms in dialogs for create/edit operations
+2. **Auth page** (`/auth`):
+   - Clean, minimal card-centered layout matching the existing design
+   - Toggle between Login and Sign Up forms
+   - Email + password fields with validation
+   - Error/success toast messages
+
+3. **Auth protection**:
+   - Auth context/hook to track session state via `onAuthStateChange`
+   - Redirect unauthenticated users to `/auth`
+   - Redirect authenticated users away from `/auth` to `/`
+
+4. **Logout**:
+   - Sign out button in the sidebar
+
+### Technical details
+- Enable Lovable Cloud for Supabase backend
+- Use `supabase-js` client (already available via Lovable Cloud)
+- Session managed with React context + `onAuthStateChange` listener set up before `getSession()`
+- RLS: users can read/update only their own profile
 
