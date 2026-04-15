@@ -21,6 +21,20 @@ export default function EventDetailPage() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
 
+  const totalRegistrations = event?.ticketTypes.reduce((s, t) => s + t.sold, 0) ?? 0;
+  const totalRevenue = event?.ticketTypes.reduce((s, t) => s + t.sold * t.price, 0) ?? 0;
+  const totalCapacity = event?.ticketTypes.reduce((s, t) => s + t.capacity, 0) ?? 0;
+  const remaining = totalCapacity - totalRegistrations;
+
+  const filteredParticipants = useMemo(() => {
+    if (!event) return [];
+    return event.participants.filter((p) => {
+      const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase());
+      const matchesType = !filterType || p.ticketTypeName === filterType;
+      return matchesSearch && matchesType;
+    });
+  }, [event?.participants, search, filterType]);
+
   if (!event) {
     return (
       <div className="text-center py-12">
@@ -29,19 +43,6 @@ export default function EventDetailPage() {
       </div>
     );
   }
-
-  const totalRegistrations = event.ticketTypes.reduce((s, t) => s + t.sold, 0);
-  const totalRevenue = event.ticketTypes.reduce((s, t) => s + t.sold * t.price, 0);
-  const totalCapacity = event.ticketTypes.reduce((s, t) => s + t.capacity, 0);
-  const remaining = totalCapacity - totalRegistrations;
-
-  const filteredParticipants = useMemo(() => {
-    return event.participants.filter((p) => {
-      const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase());
-      const matchesType = !filterType || p.ticketTypeName === filterType;
-      return matchesSearch && matchesType;
-    });
-  }, [event.participants, search, filterType]);
 
   const handleTicketSubmit = (data: { name: string; price: number; capacity: number }) => {
     if (editingTicket) {
