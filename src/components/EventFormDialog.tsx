@@ -9,7 +9,7 @@ import { RunningEvent } from "@/data/types";
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; date: string; location: string; description: string }) => void;
+  onSubmit: (data: { name: string; date: string; location: string; description: string }) => Promise<void>;
   event?: RunningEvent | null;
 }
 
@@ -18,6 +18,7 @@ export function EventFormDialog({ open, onClose, onSubmit, event }: Props) {
   const [date, setDate] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (event) {
@@ -33,10 +34,14 @@ export function EventFormDialog({ open, onClose, onSubmit, event }: Props) {
     }
   }, [event, open]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, date, location, description });
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ name, date, location, description });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -63,8 +68,10 @@ export function EventFormDialog({ open, onClose, onSubmit, event }: Props) {
             <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{event ? "Save" : "Create"}</Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : (event ? "Save" : "Create")}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

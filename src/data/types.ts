@@ -27,3 +27,17 @@ export interface Participant {
   registrationDate: string;
   status: "confirmed" | "pending" | "cancelled";
 }
+
+export interface Profile {
+  id: string;
+  full_name: string | null;
+  bib_name: string | null;
+  dob: string | null;
+  gender: string | null;
+  blood_type: string | null;
+  phone_number: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relationship: string | null;
+  role: "admin" | "user";
+}

@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { EventFormDialog } from "@/components/EventFormDialog";
 import { RunningEvent } from "@/data/types";
-import { Plus, MapPin, CalendarDays, Users, DollarSign, Pencil, Trash2 } from "lucide-react";
+import { Plus, MapPin, CalendarDays, Users, DollarSign, Pencil } from "lucide-react";
 
-export default function EventsPage() {
-  const { events, addEvent, updateEvent, deleteEvent } = useEvents();
+export default function AdminEventsPage() {
+  const { events, addEvent, updateEvent } = useEvents();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<RunningEvent | null>(null);
@@ -24,17 +24,13 @@ export default function EventsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    deleteEvent(id);
-  };
-
-  const handleSubmit = (data: { name: string; date: string; location: string; description: string }) => {
+  const handleSubmit = async (data: { name: string; date: string; location: string; description: string }) => {
     if (editingEvent) {
-      updateEvent(editingEvent.id, data);
+      await updateEvent(editingEvent.id, data);
     } else {
-      addEvent(data);
+      await addEvent(data);
     }
+    setDialogOpen(false);
   };
 
   const getEventStats = (event: RunningEvent) => {
@@ -47,8 +43,8 @@ export default function EventsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Events</h1>
-          <p className="text-muted-foreground">Manage your running events</p>
+          <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Manage all running events and details</p>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" /> New Event
@@ -73,9 +69,6 @@ export default function EventsPage() {
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleEdit(e, event)}>
                       <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => handleDelete(e, event.id)}>
-                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

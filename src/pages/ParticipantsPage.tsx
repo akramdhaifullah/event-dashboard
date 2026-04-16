@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useEvents } from "@/contexts/EventContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +10,13 @@ import { Search } from "lucide-react";
 
 export default function ParticipantsPage() {
   const { events } = useEvents();
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   const [filterEvent, setFilterEvent] = useState("");
+
+  if (!isAdmin) {
+    return <Navigate to="/" />;
+  }
 
   const allParticipants = useMemo(() => {
     return events.flatMap((e) =>

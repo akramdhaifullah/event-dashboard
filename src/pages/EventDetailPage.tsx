@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEvents } from "@/contexts/EventContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,8 @@ import { ArrowLeft, Users, DollarSign, Ticket, BarChart3, Plus, Pencil, Trash2, 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, addTicketType, updateTicketType, deleteTicketType } = useEvents();
+  const { events, addTicketType, updateTicketType, deleteTicketType, addParticipant } = useEvents();
+  const { isAdmin, user } = useAuth();
   const event = events.find((e) => e.id === id);
 
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
@@ -52,6 +54,23 @@ export default function EventDetailPage() {
     }
   };
 
+  const handleRegister = async (ticketTypeId: string) => {
+    if (!event || !user) return;
+    
+    // Use metadata if available or fallback to email prefix
+    const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Guest";
+    
+    try {
+      await addParticipant(event.id, {
+        name,
+        email: user.email || "",
+        ticketTypeId
+      });
+    } catch (error) {
+      // Error is handled in context toast
+    }
+  };
+
   const statusColor = (status: string) => {
     switch (status) {
       case "confirmed": return "default";
@@ -74,32 +93,36 @@ export default function EventDetailPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Registrations", value: totalRegistrations, icon: Users },
-          { label: "Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign },
-          { label: "Ticket Types", value: event.ticketTypes.length, icon: Ticket },
-          { label: "Remaining Spots", value: remaining, icon: BarChart3 },
-        ].map((kpi) => (
-          <Card key={kpi.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.label}</CardTitle>
-              <kpi.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpi.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {isAdmin && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Registrations", value: totalRegistrations, icon: Users },
+            { label: "Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign },
+            { label: "Ticket Types", value: event.ticketTypes.length, icon: Ticket },
+            { label: "Remaining Spots", value: remaining, icon: BarChart3 },
+          ].map((kpi) => (
+            <Card key={kpi.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.label}</CardTitle>
+                <kpi.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{kpi.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Ticket Types */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Ticket Types</CardTitle>
-          <Button size="sm" onClick={() => { setEditingTicket(null); setTicketDialogOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" /> Add Ticket
-          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => { setEditingTicket(null); setTicketDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" /> Add Ticket
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
@@ -122,14 +145,24 @@ export default function EventDetailPage() {
                   <TableCell>{ticket.sold}</TableCell>
                   <TableCell>{ticket.capacity - ticket.sold}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTicket(ticket); setTicketDialogOpen(true); }}>
-                        <Pencil className="h-3 w-3" />
+                    {isAdmin ? (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTicket(ticket); setTicketDialogOpen(true); }}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTicketType(event.id, ticket.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        disabled={ticket.sold >= ticket.capacity}
+                        onClick={() => handleRegister(ticket.id)}
+                      >
+                        {ticket.sold >= ticket.capacity ? "Sold Out" : "Register"}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTicketType(event.id, ticket.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -144,58 +177,60 @@ export default function EventDetailPage() {
       </Card>
 
       {/* Participants */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Participants</CardTitle>
-          <div className="flex gap-2 mt-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by name or email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Participants</CardTitle>
+            <div className="flex gap-2 mt-2">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search by name or email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              </div>
+              <select
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="">All ticket types</option>
+                {event.ticketTypes.map((t) => (
+                  <option key={t.id} value={t.name}>{t.name}</option>
+                ))}
+              </select>
             </div>
-            <select
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="">All ticket types</option>
-              {event.ticketTypes.map((t) => (
-                <option key={t.id} value={t.name}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Ticket Type</TableHead>
-                <TableHead>Registration Date</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredParticipants.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell>{p.email}</TableCell>
-                  <TableCell>{p.ticketTypeName}</TableCell>
-                  <TableCell>{new Date(p.registrationDate).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusColor(p.status)}>{p.status}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredParticipants.length === 0 && (
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">No participants found.</TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Ticket Type</TableHead>
+                  <TableHead>Registration Date</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredParticipants.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell>{p.email}</TableCell>
+                    <TableCell>{p.ticketTypeName}</TableCell>
+                    <TableCell>{new Date(p.registrationDate).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusColor(p.status)}>{p.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredParticipants.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-6">No participants found.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <TicketFormDialog open={ticketDialogOpen} onClose={() => setTicketDialogOpen(false)} onSubmit={handleTicketSubmit} ticket={editingTicket} />
     </div>
