@@ -47,7 +47,7 @@ export function TicketFormDialog({ open, onClose, onSubmit, ticket }: Props) {
             <Input id="ticketName" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="price">Price ($)</Label>
+            <Label htmlFor="price">Price (IDR)</Label>
             <Input id="price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} required />
           </div>
           <div className="space-y-2">

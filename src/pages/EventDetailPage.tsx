@@ -9,24 +9,31 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TicketFormDialog } from "@/components/TicketFormDialog";
 import { TicketType } from "@/data/types";
-import { ArrowLeft, Users, DollarSign, Ticket, BarChart3, Plus, Pencil, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Users, DollarSign, Ticket, BarChart3, Plus, Pencil, Trash2, Search, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, addTicketType, updateTicketType, deleteTicketType, addParticipant } = useEvents();
-  const { isAdmin, user } = useAuth();
+  const { events, addTicketType, updateTicketType, deleteTicketType, processRegistrationWithPayment } = useEvents();
+  const { isAdmin, user, profile } = useAuth();
   const event = events.find((e) => e.id === id);
 
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<TicketType | null>(null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [registeringTicketId, setRegisteringTicketId] = useState<string | null>(null);
 
   const totalRegistrations = event?.ticketTypes.reduce((s, t) => s + t.sold, 0) ?? 0;
   const totalRevenue = event?.ticketTypes.reduce((s, t) => s + t.sold * t.price, 0) ?? 0;
   const totalCapacity = event?.ticketTypes.reduce((s, t) => s + t.capacity, 0) ?? 0;
   const remaining = totalCapacity - totalRegistrations;
+
+  // Check if user is already registered for this event
+  const isAlreadyRegistered = useMemo(() => {
+    if (!event || !user?.email) return false;
+    return event.participants.some(p => p.email.toLowerCase() === user.email?.toLowerCase());
+  }, [event, user?.email]);
 
   const filteredParticipants = useMemo(() => {
     if (!event) return [];
@@ -55,19 +62,21 @@ export default function EventDetailPage() {
   };
 
   const handleRegister = async (ticketTypeId: string) => {
-    if (!event || !user) return;
+    if (!event || !user || isAlreadyRegistered) return;
     
-    // Use metadata if available or fallback to email prefix
-    const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Guest";
+    // Use full name from profile if available
+    const name = profile?.full_name || user.email?.split('@')[0] || "Guest";
     
+    setRegisteringTicketId(ticketTypeId);
     try {
-      await addParticipant(event.id, {
+      await processRegistrationWithPayment(event.id, ticketTypeId, {
         name,
         email: user.email || "",
-        ticketTypeId
       });
     } catch (error) {
-      // Error is handled in context toast
+      console.error("Registration failed:", error);
+    } finally {
+      setRegisteringTicketId(null);
     }
   };
 
@@ -92,12 +101,19 @@ export default function EventDetailPage() {
         </div>
       </div>
 
+      {isAlreadyRegistered && !isAdmin && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3 text-primary animate-in fade-in slide-in-from-top-2">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+          <p className="text-sm font-medium">You are registered for this event. See your details below.</p>
+        </div>
+      )}
+
       {/* KPI Cards */}
       {isAdmin && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Registrations", value: totalRegistrations, icon: Users },
-            { label: "Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign },
+            { label: "Revenue", value: `IDR ${totalRevenue.toLocaleString()}`, icon: DollarSign },
             { label: "Ticket Types", value: event.ticketTypes.length, icon: Ticket },
             { label: "Remaining Spots", value: remaining, icon: BarChart3 },
           ].map((kpi) => (
@@ -137,35 +153,43 @@ export default function EventDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {event.ticketTypes.map((ticket) => (
-                <TableRow key={ticket.id}>
-                  <TableCell className="font-medium">{ticket.name}</TableCell>
-                  <TableCell>${ticket.price}</TableCell>
-                  <TableCell>{ticket.capacity}</TableCell>
-                  <TableCell>{ticket.sold}</TableCell>
-                  <TableCell>{ticket.capacity - ticket.sold}</TableCell>
-                  <TableCell>
-                    {isAdmin ? (
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTicket(ticket); setTicketDialogOpen(true); }}>
-                          <Pencil className="h-3 w-3" />
+              {event.ticketTypes.map((ticket) => {
+                const isProcessing = registeringTicketId === ticket.id;
+                const isSoldOut = ticket.sold >= ticket.capacity;
+                
+                return (
+                  <TableRow key={ticket.id}>
+                    <TableCell className="font-medium">{ticket.name}</TableCell>
+                    <TableCell>IDR {ticket.price.toLocaleString()}</TableCell>
+                    <TableCell>{ticket.capacity}</TableCell>
+                    <TableCell>{ticket.sold}</TableCell>
+                    <TableCell>{ticket.capacity - ticket.sold}</TableCell>
+                    <TableCell>
+                      {isAdmin ? (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTicket(ticket); setTicketDialogOpen(true); }}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTicketType(event.id, ticket.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button 
+                          size="sm" 
+                          disabled={isSoldOut || registeringTicketId !== null || isAlreadyRegistered}
+                          onClick={() => handleRegister(ticket.id)}
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : null}
+                          {isAlreadyRegistered ? "Already Registered" : (isSoldOut ? "Sold Out" : (isProcessing ? "Processing..." : "Register"))}
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTicketType(event.id, ticket.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        disabled={ticket.sold >= ticket.capacity}
-                        onClick={() => handleRegister(ticket.id)}
-                      >
-                        {ticket.sold >= ticket.capacity ? "Sold Out" : "Register"}
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {event.ticketTypes.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-6">No ticket types yet.</TableCell>

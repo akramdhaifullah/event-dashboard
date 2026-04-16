@@ -13,6 +13,7 @@ interface EventContextType {
   updateTicketType: (eventId: string, ticketId: string, data: Partial<Pick<TicketType, "name" | "price" | "capacity">>) => Promise<void>;
   deleteTicketType: (eventId: string, ticketId: string) => Promise<void>;
   addParticipant: (eventId: string, data: { name: string; email: string; ticketTypeId: string }) => Promise<void>;
+  processRegistrationWithPayment: (eventId: string, ticketTypeId: string, userData: { name: string; email: string }) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
 
@@ -219,6 +220,92 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const processRegistrationWithPayment = async (eventId: string, ticketTypeId: string, userData: { name: string; email: string }) => {
+    try {
+      const event = events.find(e => e.id === eventId);
+      const ticketType = event?.ticketTypes.find(t => t.id === ticketTypeId);
+      
+      if (!event || !ticketType) {
+        throw new Error("Event or ticket type not found.");
+      }
+
+      // 1. Call Supabase Edge Function to get Snap Token
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
+        body: {
+          transaction_details: {
+            order_id: `REG-${Date.now()}-${userData.email.split('@')[0]}`,
+            gross_amount: ticketType.price
+          },
+          customer_details: {
+            first_name: userData.name,
+            email: userData.email
+          },
+          item_details: [{
+            id: ticketType.id,
+            price: ticketType.price,
+            quantity: 1,
+            name: `${event.name} - ${ticketType.name}`
+          }],
+          credit_card: { secure: true },
+        },
+      });
+
+      if (functionError) {
+        throw new Error(functionError.message || "Failed to initialize payment.");
+      }
+
+      const { token } = functionData;
+
+      // 2. Open Midtrans Snap Popup
+      return new Promise<void>((resolve, reject) => {
+        window.snap.pay(token, {
+          onSuccess: async (result) => {
+            console.log("Payment Success:", result);
+            try {
+              await addParticipant(eventId, {
+                name: userData.name,
+                email: userData.email,
+                ticketTypeId: ticketTypeId
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+          onPending: (result) => {
+            console.log("Payment Pending:", result);
+            toast({
+              title: "Payment Pending",
+              description: "Your payment is being processed. Please complete it to finish registration.",
+            });
+            resolve();
+          },
+          onError: (result) => {
+            console.error("Payment Error:", result);
+            toast({
+              variant: "destructive",
+              title: "Payment Failed",
+              description: "Something went wrong during payment. Please try again.",
+            });
+            reject(new Error("Payment failed."));
+          },
+          onClose: () => {
+            console.log("Payment Popup Closed");
+            reject(new Error("Payment process cancelled."));
+          }
+        });
+      });
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Payment Error",
+        description: error.message,
+      });
+      throw error;
+    }
+  };
+
   return (
     <EventContext.Provider value={{ 
         events, 
@@ -230,6 +317,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateTicketType, 
         deleteTicketType,
         addParticipant,
+        processRegistrationWithPayment,
         refreshEvents: fetchEvents 
     }}>
       {children}
