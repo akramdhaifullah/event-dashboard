@@ -24,7 +24,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 
@@ -49,29 +48,29 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>
+          <SidebarGroupLabel className="px-4 pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
             {!collapsed && (isAdmin ? "Admin Manager" : "Event Portal")}
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
+          <SidebarGroupContent className="p-2">
+            <SidebarMenu className="gap-1">
               {menuItems.map((item) => {
                 const isDisabled = !isAdmin && !isProfileComplete && !item.alwaysEnabled;
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild disabled={isDisabled}>
+                    <SidebarMenuButton asChild disabled={isDisabled} tooltip={item.title}>
                       <NavLink
                         to={isDisabled ? "#" : item.url}
                         end={item.url === "/"}
                         className={cn(
-                          "hover:bg-muted/50",
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                           isDisabled && "opacity-50 cursor-not-allowed pointer-events-none"
                         )}
-                        activeClassName="bg-muted text-primary font-medium"
+                        activeClassName="bg-primary/10 text-primary"
                       >
-                        <item.icon className="mr-2 h-4 w-4" />
+                        <item.icon className="h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
@@ -82,40 +81,42 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+
+      <SidebarFooter className="p-0 border-t bg-muted/30">
+        {!collapsed && user && (
+          <div className="px-4 py-3 border-b flex flex-col items-start overflow-hidden">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Signed in as</span>
+            <span className="text-xs font-medium truncate w-full">{user.email}</span>
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
-            <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
-              <AlertDialogTrigger asChild>
-                <SidebarMenuButton onClick={(e) => {
-                  // If collapsed, we might want to just show the dialog immediately
-                  // but AlertDialogTrigger handles the click usually.
-                }}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  {!collapsed && <span>Log Out</span>}
-                </SidebarMenuButton>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    You will need to sign in again to access the admin dashboard.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSignOut}>Log Out</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <SidebarMenuButton 
+              onClick={() => setShowLogoutConfirm(true)} 
+              tooltip="Log Out"
+              className="px-4 py-6 h-auto rounded-none justify-start gap-3 hover:text-destructive transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span className="text-sm font-medium">Log Out</span>}
+            </SidebarMenuButton>
           </SidebarMenuItem>
-          {!collapsed && user && (
-            <div className="px-3 py-2 text-xs text-muted-foreground truncate">
-              {user.email}
-            </div>
-          )}
         </SidebarMenu>
       </SidebarFooter>
+
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to sign in again to access the admin dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSignOut}>Log Out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }
