@@ -1,14 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEvents } from "@/contexts/EventContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MapPin, CalendarDays, Ticket, Search, Filter } from "lucide-react";
+import { MapPin, CalendarDays, Ticket, Search } from "lucide-react";
 
 export default function UserEventsPage() {
-  const { events } = useEvents();
+  const { events, refreshEvents, isLoading } = useEvents();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    refreshEvents();
+  }, []);
 
   const filteredEvents = useMemo(() => {
     return events
@@ -39,7 +43,13 @@ export default function UserEventsPage() {
         />
       </div>
 
-      {filteredEvents.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-[200px] bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      ) : filteredEvents.length === 0 ? (
         <div className="text-center py-20 bg-muted/30 rounded-xl border-2 border-dashed">
           <p className="text-muted-foreground text-lg">No events found matching your search.</p>
           <button 

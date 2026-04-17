@@ -1,16 +1,20 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEvents } from "@/contexts/EventContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, MapPin, Ticket, ArrowRight } from "lucide-react";
+import { CalendarDays, MapPin, Ticket, ArrowRight, Loader2 } from "lucide-react";
 
 export default function MyRacePage() {
-  const { events } = useEvents();
+  const { events, refreshEvents, isLoading } = useEvents();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    refreshEvents();
+  }, []);
 
   const myRegistrations = useMemo(() => {
     if (!user?.email) return [];
@@ -46,7 +50,12 @@ export default function MyRacePage() {
         <p className="text-muted-foreground text-lg">Manage and view all your registered upcoming events</p>
       </div>
 
-      {myRegistrations.length === 0 ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground animate-pulse">Syncing your registrations...</p>
+        </div>
+      ) : myRegistrations.length === 0 ? (
         <Card className="text-center py-12 border-dashed">
           <CardContent className="space-y-4">
             <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto">
