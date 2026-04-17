@@ -56,8 +56,8 @@ export function UserNavbar() {
                       <Menu className="h-6 w-6" />
                     </Button>
                   </SheetTrigger>
-                  <SheetContent side="left" className="w-[280px] sm:w-[350px] flex flex-col">
-                    <SheetHeader className="text-left border-b pb-4 mb-4 shrink-0">
+                  <SheetContent side="left" className="w-[280px] sm:w-[350px] flex flex-col p-0">
+                    <SheetHeader className="text-left border-b p-4 shrink-0">
                       <SheetTitle className="flex items-center gap-2">
                         <div className="bg-primary p-1 rounded">
                           <Calendar className="h-5 w-5 text-primary-foreground" />
@@ -66,7 +66,7 @@ export function UserNavbar() {
                       </SheetTitle>
                     </SheetHeader>
                     
-                    <div className="flex flex-col gap-2 flex-1">
+                    <div className="flex flex-col gap-1 flex-1 p-2">
                       {navItems.map((item) => {
                         const isActive = pathname === item.url;
                         return (
@@ -75,32 +75,38 @@ export function UserNavbar() {
                             to={item.url}
                             onClick={() => setIsMobileMenuOpen(false)}
                             className={cn(
-                              "flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors",
+                              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                               isActive 
                                 ? "bg-primary/10 text-primary" 
                                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
                             )}
                           >
-                            <item.icon className="h-5 w-5" />
+                            <item.icon className="h-4 w-4" />
                             {item.title}
                           </Link>
                         );
                       })}
                     </div>
 
-                    {/* Logout section pinned to the bottom (Mobile only) */}
-                    <div className="mt-auto border-t pt-4 pb-2 shrink-0">
-                      <Button 
-                        variant="ghost" 
-                        className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive transition-colors px-4 py-6 h-auto" 
-                        onClick={() => {
-                          setIsMobileMenuOpen(false);
-                          setShowLogoutConfirm(true);
-                        }}
-                      >
-                        <LogOut className="h-5 w-5" />
-                        <span className="text-base font-medium">Log Out</span>
-                      </Button>
+                    {/* Footer section pinned to the bottom */}
+                    <div className="mt-auto shrink-0 bg-muted/30">
+                      <div className="px-4 py-3 border-t flex flex-col items-start">
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Signed in as</span>
+                        <span className="text-sm font-medium truncate w-full">{user?.email}</span>
+                      </div>
+                      <div className="border-t">
+                        <Button 
+                          variant="ghost" 
+                          className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive transition-colors px-4 py-4 h-auto rounded-none" 
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            setShowLogoutConfirm(true);
+                          }}
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span className="text-sm font-medium">Log Out</span>
+                        </Button>
+                      </div>
                     </div>
                   </SheetContent>
                 </Sheet>
