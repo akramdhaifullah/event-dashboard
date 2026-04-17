@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { RunningEvent, TicketType, Participant } from "@/data/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -31,68 +31,73 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: eventsData, error: eventsError } = await supabase
-        .from("events")
-        .select("*");
+      // Optimize: Fetch all resources concurrently
+      const [eventsRes, ticketsRes, participantsRes] = await Promise.all([
+        supabase.from("events").select("*"),
+        supabase.from("ticket_types").select("*"),
+        supabase.from("participants").select("*")
+      ]);
 
-      if (eventsError) throw eventsError;
+      if (eventsRes.error) throw eventsRes.error;
+      if (ticketsRes.error) throw ticketsRes.error;
+      if (participantsRes.error) throw participantsRes.error;
 
-      const { data: ticketsData, error: ticketsError } = await supabase
-        .from("ticket_types")
-        .select("*");
-
-      if (ticketsError) throw ticketsError;
-
-      const { data: participantsData, error: participantsError } = await supabase
-        .from("participants")
-        .select("*");
-
-      if (participantsError) throw participantsError;
-
-      const combinedEvents: RunningEvent[] = eventsData.map((event) => ({
+      const combinedEvents: RunningEvent[] = eventsRes.data.map((event) => ({
         ...event,
-        visible: event.visible ?? true, // Default to true if null
-        ticketTypes: ticketsData.filter((t) => t.event_id === event.id).map(t => ({
+        visible: event.visible ?? true,
+        ticketTypes: ticketsRes.data
+          .filter((t) => t.event_id === event.id)
+          .map(t => ({
             id: t.id,
             eventId: t.event_id,
             name: t.name,
             price: t.price,
             capacity: t.capacity,
             sold: t.sold
-        })),
-        participants: participantsData.filter((p) => p.event_id === event.id).map(p => {
-            const ticketType = ticketsData.find(t => t.id === p.ticket_type_id);
+          })),
+        participants: participantsRes.data
+          .filter((p) => p.event_id === event.id)
+          .map(p => {
+            const ticketType = ticketsRes.data.find(t => t.id === p.ticket_type_id);
             return {
-                id: p.id,
-                eventId: p.event_id,
-                name: p.name,
-                email: p.email,
-                ticketTypeId: p.ticket_type_id,
-                ticketTypeName: ticketType ? ticketType.name : "Unknown",
-                registrationDate: p.registration_date,
-                status: p.status
+              id: p.id,
+              eventId: p.event_id,
+              name: p.name,
+              email: p.email,
+              ticketTypeId: p.ticket_type_id,
+              ticketTypeName: ticketType ? ticketType.name : "Unknown",
+              registrationDate: p.registration_date,
+              status: p.status
             };
-        }),
+          }),
       }));
 
       setEvents(combinedEvents);
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error fetching events",
+        title: "Sync Error",
         description: error.message,
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [fetchEvents]);
+
+  const handleSupabaseError = (error: any, title: string) => {
+    toast({
+      variant: "destructive",
+      title,
+      description: error.message,
+    });
+  };
 
   const addEvent = async (data: Omit<RunningEvent, "id" | "ticketTypes" | "participants" | "visible">) => {
     try {
@@ -100,11 +105,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error adding event",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error adding event");
     }
   };
 
@@ -114,35 +115,21 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error updating event",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error updating event");
     }
   };
 
   const toggleEventVisibility = async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from("events")
-        .update({ visible: !currentStatus })
-        .eq("id", id);
-      
+      const { error } = await supabase.from("events").update({ visible: !currentStatus }).eq("id", id);
       if (error) throw error;
-      
       toast({
         title: !currentStatus ? "Event visible" : "Event hidden",
         description: !currentStatus ? "Event is now visible to users." : "Event is now hidden from users.",
       });
-      
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error updating visibility",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error updating visibility");
     }
   };
 
@@ -152,29 +139,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error deleting event",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error deleting event");
     }
   };
 
   const addTicketType = async (eventId: string, ticket: Omit<TicketType, "id" | "eventId" | "sold">) => {
     try {
-      const { error } = await supabase.from("ticket_types").insert([{
-        ...ticket,
-        event_id: eventId,
-        sold: 0
-      }]);
+      const { error } = await supabase.from("ticket_types").insert([{ ...ticket, event_id: eventId, sold: 0 }]);
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error adding ticket type",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error adding ticket type");
     }
   };
 
@@ -184,11 +159,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error updating ticket type",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error updating ticket type");
     }
   };
 
@@ -198,17 +169,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error deleting ticket type",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error deleting ticket type");
     }
   };
 
   const addParticipant = async (eventId: string, data: { name: string; email: string; ticketTypeId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed") => {
     try {
-      // 1. Check if participant already exists for this event and email
       const { data: existingParticipant, error: checkError } = await supabase
         .from("participants")
         .select("id, status")
@@ -219,17 +185,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (checkError) throw checkError;
 
       if (existingParticipant) {
-        // If they exist and we are just updating status (e.g. from pending to confirmed or staying pending)
         if (existingParticipant.status !== status) {
-          const { error: updateError } = await supabase
-            .from("participants")
-            .update({ status })
-            .eq("id", existingParticipant.id);
-          
+          const { error: updateError } = await supabase.from("participants").update({ status }).eq("id", existingParticipant.id);
           if (updateError) throw updateError;
         }
       } else {
-        // 2. Insert new participant
         const { error: participantError } = await supabase.from("participants").insert([{
           event_id: eventId,
           name: data.name,
@@ -238,35 +198,22 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           registration_date: new Date().toISOString(),
           status: status
         }]);
-        
         if (participantError) throw participantError;
 
-        // 3. Update sold count for ticket type (only on new insertion)
         const event = events.find(e => e.id === eventId);
         const ticketType = event?.ticketTypes.find(t => t.id === data.ticketTypeId);
         if (ticketType) {
-          const { error: ticketError } = await supabase
-            .from("ticket_types")
-            .update({ sold: (ticketType.sold || 0) + 1 })
-            .eq("id", data.ticketTypeId);
+          const { error: ticketError } = await supabase.from("ticket_types").update({ sold: (ticketType.sold || 0) + 1 }).eq("id", data.ticketTypeId);
           if (ticketError) throw ticketError;
         }
       }
 
       if (status === "confirmed") {
-        toast({
-          title: "Registration Successful!",
-          description: "You have been registered for the event.",
-        });
+        toast({ title: "Registration Successful!", description: "You have been registered for the event." });
       }
-      
       await fetchEvents();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error during registration",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Error during registration");
       throw error;
     }
   };
@@ -275,118 +222,56 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const event = events.find(e => e.id === eventId);
       const ticketType = event?.ticketTypes.find(t => t.id === ticketTypeId);
-      
-      if (!event || !ticketType) {
-        throw new Error("Event or ticket type not found.");
-      }
+      if (!event || !ticketType) throw new Error("Event or ticket type not found.");
 
-      // 1. Call Supabase Edge Function to get Snap Token
       const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
         body: {
-          transaction_details: {
-            order_id: `REG-${Date.now()}-${userData.email.split('@')[0]}`,
-            gross_amount: ticketType.price
-          },
-          customer_details: {
-            first_name: userData.name,
-            email: userData.email
-          },
-          item_details: [{
-            id: ticketType.id,
-            price: ticketType.price,
-            quantity: 1,
-            name: `${event.name} - ${ticketType.name}`
-          }],
+          transaction_details: { order_id: `REG-${Date.now()}-${userData.email.split('@')[0]}`, gross_amount: ticketType.price },
+          customer_details: { first_name: userData.name, email: userData.email },
+          item_details: [{ id: ticketType.id, price: ticketType.price, quantity: 1, name: `${event.name} - ${ticketType.name}` }],
           credit_card: { secure: true },
         },
       });
 
-      if (functionError) {
-        throw new Error(functionError.message || "Failed to initialize payment.");
-      }
+      if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
 
-      const { token } = functionData;
-
-      // 2. Open Midtrans Snap Popup
       return new Promise<void>((resolve, reject) => {
-        const participantData = {
-            ...userData,
-            ticketTypeId: ticketTypeId
-        };
-
-        window.snap.pay(token, {
-          onSuccess: async (result) => {
-            console.log("Payment Success:", result);
-            try {
-              await addParticipant(eventId, participantData, "confirmed");
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
+        const participantData = { ...userData, ticketTypeId };
+        window.snap.pay(functionData.token, {
+          onSuccess: async () => {
+            try { await addParticipant(eventId, participantData, "confirmed"); resolve(); } catch (err) { reject(err); }
           },
-          onPending: async (result) => {
-            console.log("Payment Pending:", result);
-            try {
-              await addParticipant(eventId, participantData, "pending");
-              toast({
-                title: "Payment Pending",
-                description: "Your payment is being processed. You can find this race in 'My Race' tab.",
-              });
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
+          onPending: async () => {
+            try { 
+              await addParticipant(eventId, participantData, "pending"); 
+              toast({ title: "Payment Pending", description: "Your payment is being processed. You can find this race in 'My Race' tab." });
+              resolve(); 
+            } catch (err) { reject(err); }
           },
-          onError: (result) => {
-            console.error("Payment Error:", result);
-            toast({
-              variant: "destructive",
-              title: "Payment Failed",
-              description: "Something went wrong during payment. Please try again.",
-            });
+          onError: () => {
+            toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
             reject(new Error("Payment failed."));
           },
           onClose: async () => {
-            console.log("Payment Popup Closed");
             try {
-              // Create a pending registration if the window is closed
               await addParticipant(eventId, participantData, "pending");
-              toast({
-                title: "Registration Pending",
-                description: "Payment was not completed. Your registration has been saved as pending.",
-              });
+              toast({ title: "Registration Pending", description: "Payment was not completed. Your registration has been saved as pending." });
               resolve();
-            } catch (err) {
-              reject(new Error("Payment process cancelled."));
-            }
+            } catch (err) { reject(err); }
           }
         });
       });
-
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Payment Error",
-        description: error.message,
-      });
+      handleSupabaseError(error, "Payment Error");
       throw error;
     }
   };
 
   return (
     <EventContext.Provider value={{ 
-        events, 
-        isLoading, 
-        addEvent, 
-        updateEvent, 
-        toggleEventVisibility,
-        deleteEvent, 
-        addTicketType, 
-        updateTicketType, 
-        deleteTicketType,
-        addParticipant,
-        processRegistrationWithPayment,
-        refreshEvents: fetchEvents 
+        events, isLoading, addEvent, updateEvent, toggleEventVisibility, deleteEvent, 
+        addTicketType, updateTicketType, deleteTicketType, addParticipant, 
+        processRegistrationWithPayment, refreshEvents: fetchEvents 
     }}>
       {children}
     </EventContext.Provider>
