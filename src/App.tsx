@@ -18,12 +18,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const AuthenticatedApp = () => {
-  const { session, isLoading, isAdmin, isProfileComplete, profile } = useAuth();
+const AppRoutes = () => {
+  const { session, isLoading, isAdmin, profile } = useAuth();
   const location = useLocation();
 
-  // STAGE 1: Check session and initial loading
-  // We keep the spinner visible as long as we are 'isLoading' OR if we have a session but haven't fetched the profile yet
+  // STAGE 1: Initial authentication check
   if (isLoading || (session && !profile)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -32,15 +31,14 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // STAGE 2: No session means they must log in
-  if (!session) {
-    return <AuthPage />;
+  // STAGE 2: Handle Login and Register explicitly
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  if (isAuthPage) {
+    return session ? <Navigate to="/" replace /> : <AuthPage />;
   }
 
-  // STAGE 3: Session and Profile are loaded, now determine layout
-  
-  // --- Admin Logic ---
-  if (isAdmin) {
+  // STAGE 3: Admin Layout
+  if (session && isAdmin) {
     const isOnProfilePage = location.pathname === "/profile";
     if (isOnProfilePage) return <Navigate to="/" replace />;
 
@@ -56,14 +54,17 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // --- User Logic ---
+  // STAGE 4: User/Guest Layout
   return (
     <UserLayout>
       <Routes>
         <Route path="/" element={<UserEventsPage />} />
         <Route path="/events/:id" element={<EventDetailPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/my-race" element={<MyRacePage />} />
+        
+        {/* Protected User Routes */}
+        <Route path="/profile" element={session ? <ProfilePage /> : <Navigate to="/login" state={{ from: location }} replace />} />
+        <Route path="/my-race" element={session ? <MyRacePage /> : <Navigate to="/login" state={{ from: location }} replace />} />
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
     </UserLayout>
@@ -78,7 +79,7 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <EventProvider>
-            <AuthenticatedApp />
+            <AppRoutes />
           </EventProvider>
         </BrowserRouter>
       </AuthProvider>

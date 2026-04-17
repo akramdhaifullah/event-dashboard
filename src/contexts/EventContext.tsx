@@ -6,8 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 interface EventContextType {
   events: RunningEvent[];
   isLoading: boolean;
-  addEvent: (event: Omit<RunningEvent, "id" | "ticketTypes" | "participants">) => Promise<void>;
-  updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description">>) => Promise<void>;
+  addEvent: (event: Omit<RunningEvent, "id" | "ticketTypes" | "participants" | "visible">) => Promise<void>;
+  updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "visible">>) => Promise<void>;
+  toggleEventVisibility: (id: string, currentStatus: boolean) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   addTicketType: (eventId: string, ticket: Omit<TicketType, "id" | "eventId" | "sold">) => Promise<void>;
   updateTicketType: (eventId: string, ticketId: string, data: Partial<Pick<TicketType, "name" | "price" | "capacity">>) => Promise<void>;
@@ -53,6 +54,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const combinedEvents: RunningEvent[] = eventsData.map((event) => ({
         ...event,
+        visible: event.visible ?? true, // Default to true if null
         ticketTypes: ticketsData.filter((t) => t.event_id === event.id).map(t => ({
             id: t.id,
             eventId: t.event_id,
@@ -92,9 +94,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetchEvents();
   }, []);
 
-  const addEvent = async (data: Omit<RunningEvent, "id" | "ticketTypes" | "participants">) => {
+  const addEvent = async (data: Omit<RunningEvent, "id" | "ticketTypes" | "participants" | "visible">) => {
     try {
-      const { error } = await supabase.from("events").insert([data]);
+      const { error } = await supabase.from("events").insert([{ ...data, visible: false }]);
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
@@ -106,7 +108,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const updateEvent = async (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description">>) => {
+  const updateEvent = async (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "visible">>) => {
     try {
       const { error } = await supabase.from("events").update(data).eq("id", id);
       if (error) throw error;
@@ -115,6 +117,30 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       toast({
         variant: "destructive",
         title: "Error updating event",
+        description: error.message,
+      });
+    }
+  };
+
+  const toggleEventVisibility = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ visible: !currentStatus })
+        .eq("id", id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: !currentStatus ? "Event visible" : "Event hidden",
+        description: !currentStatus ? "Event is now visible to users." : "Event is now hidden from users.",
+      });
+      
+      await fetchEvents();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error updating visibility",
         description: error.message,
       });
     }
@@ -312,6 +338,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isLoading, 
         addEvent, 
         updateEvent, 
+        toggleEventVisibility,
         deleteEvent, 
         addTicketType, 
         updateTicketType, 

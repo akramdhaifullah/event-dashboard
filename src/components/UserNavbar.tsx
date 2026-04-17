@@ -1,19 +1,20 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Trophy, Calendar } from "lucide-react";
+import { LogOut, User, Trophy, Calendar, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function UserNavbar() {
-  const { signOut, user } = useAuth();
+  const { signOut, user, session } = useAuth();
   const navigate = useNavigate();
-  const pathname = window.location.pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
 
-  const navItems = [
+  const navItems = session ? [
     { title: "Events", url: "/", icon: Calendar },
     { title: "My Race", url: "/my-race", icon: Trophy },
     { title: "Profile", url: "/profile", icon: User },
-  ];
+  ] : [];
 
   return (
     <nav className="border-b bg-background sticky top-0 z-50">
@@ -50,13 +51,26 @@ export function UserNavbar() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex flex-col items-end mr-2 text-[10px]">
-              <span className="text-muted-foreground leading-tight">Signed in as</span>
-              <span className="font-medium leading-tight truncate max-w-[150px]">{user?.email}</span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => signOut()} title="Log Out">
-              <LogOut className="h-5 w-5 text-muted-foreground" />
-            </Button>
+            {session ? (
+              <>
+                <div className="hidden sm:flex flex-col items-end mr-2 text-[10px]">
+                  <span className="text-muted-foreground leading-tight">Signed in as</span>
+                  <span className="font-medium leading-tight truncate max-w-[150px]">{user?.email}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => signOut()} title="Log Out">
+                  <LogOut className="h-5 w-5 text-muted-foreground" />
+                </Button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" asChild>
+                  <Link to="/login">Sign In</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/register">Register</Link>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

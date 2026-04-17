@@ -14,7 +14,7 @@ import { ArrowLeft, Users, DollarSign, Ticket, BarChart3, Plus, Pencil, Trash2, 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, addTicketType, updateTicketType, deleteTicketType, processRegistrationWithPayment } = useEvents();
+  const { events, addTicketType, updateTicketType, deleteTicketType, addParticipant, processRegistrationWithPayment, deleteEvent } = useEvents();
   const { isAdmin, user, profile } = useAuth();
   const event = events.find((e) => e.id === id);
 
@@ -80,6 +80,14 @@ export default function EventDetailPage() {
     }
   };
 
+  const handleDeleteEvent = async () => {
+    if (!event) return;
+    if (window.confirm(`Are you sure you want to delete the event "${event.name}"? This will remove all associated ticket types and participant records.`)) {
+      await deleteEvent(event.id);
+      navigate("/");
+    }
+  };
+
   const statusColor = (status: string) => {
     switch (status) {
       case "confirmed": return "default";
@@ -91,14 +99,21 @@ export default function EventDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
-          <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
+            <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
+          </div>
         </div>
+        {isAdmin && (
+          <Button variant="destructive" onClick={handleDeleteEvent}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete Event
+          </Button>
+        )}
       </div>
 
       {isAlreadyRegistered && !isAdmin && (

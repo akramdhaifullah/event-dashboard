@@ -6,13 +6,9 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
   const { isProfileComplete, isAdmin, session } = useAuth();
   const location = useLocation();
 
-  if (!session) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  // Redirect to profile if incomplete
+  // If logged in but profile is incomplete, redirect to profile page
   const isOnProfilePage = location.pathname === "/profile";
-  if (!isAdmin && !isProfileComplete && !isOnProfilePage) {
+  if (session && !isAdmin && !isProfileComplete && !isOnProfilePage) {
     return <Navigate to="/profile" replace />;
   }
 

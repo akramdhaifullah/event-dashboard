@@ -11,10 +11,12 @@ export default function UserEventsPage() {
   const [search, setSearch] = useState("");
 
   const filteredEvents = useMemo(() => {
-    return events.filter(event => 
-      event.name.toLowerCase().includes(search.toLowerCase()) ||
-      event.location.toLowerCase().includes(search.toLowerCase())
-    );
+    return events
+      .filter(event => event.visible) // Only show visible events
+      .filter(event => 
+        event.name.toLowerCase().includes(search.toLowerCase()) ||
+        event.location.toLowerCase().includes(search.toLowerCase())
+      );
   }, [events, search]);
 
   return (
@@ -90,10 +92,6 @@ export default function UserEventsPage() {
                     <div className="flex items-center gap-3 text-muted-foreground">
                       <MapPin className="h-4 w-4 shrink-0 text-primary/70" />
                       <span className="truncate">{event.location}</span>
-                    </div>
-                    <div className="flex items-center gap-3 font-medium text-foreground">
-                      <Ticket className="h-4 w-4 shrink-0 text-primary/70" />
-                      <span>{event.ticketTypes.length} Ticket Options</span>
                     </div>
                   </div>
                 </CardContent>

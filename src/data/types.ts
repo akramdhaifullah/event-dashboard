@@ -4,6 +4,7 @@ export interface RunningEvent {
   date: string;
   location: string;
   description: string;
+  visible: boolean;
   ticketTypes: TicketType[];
   participants: Participant[];
 }
