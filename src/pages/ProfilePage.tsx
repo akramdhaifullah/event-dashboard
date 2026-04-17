@@ -125,25 +125,27 @@ export default function ProfilePage() {
         </Alert>
       )}
 
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
           <p className="text-muted-foreground text-lg">Manage your personal information and preferences</p>
         </div>
-        {!isEditing ? (
-          <Button onClick={() => setIsEditing(true)}>
-            <Pencil className="mr-2 h-4 w-4" /> Edit Profile
-          </Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel}>
-              <X className="mr-2 h-4 w-4" /> Cancel
+        <div className="flex items-center gap-2">
+          {!isEditing ? (
+            <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+              <Pencil className="mr-2 h-4 w-4" /> Edit Profile
             </Button>
-            <Button onClick={handleSave} disabled={!isFormValid}>
-              <Save className="mr-2 h-4 w-4" /> Save Changes
-            </Button>
-          </div>
-        )}
+          ) : (
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={handleCancel} className="flex-1 sm:flex-none">
+                <X className="mr-2 h-4 w-4" /> Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={!isFormValid} className="flex-1 sm:flex-none">
+                <Save className="mr-2 h-4 w-4" /> Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
