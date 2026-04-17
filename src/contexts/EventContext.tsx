@@ -13,7 +13,7 @@ interface EventContextType {
   addTicketType: (eventId: string, ticket: Omit<TicketType, "id" | "eventId" | "sold">) => Promise<void>;
   updateTicketType: (eventId: string, ticketId: string, data: Partial<Pick<TicketType, "name" | "price" | "capacity">>) => Promise<void>;
   deleteTicketType: (eventId: string, ticketId: string) => Promise<void>;
-  addParticipant: (eventId: string, data: { name: string; email: string; ticketTypeId: string }) => Promise<void>;
+  addParticipant: (eventId: string, data: { name: string; email: string; ticketTypeId: string }, status?: "confirmed" | "pending" | "cancelled") => Promise<void>;
   processRegistrationWithPayment: (eventId: string, ticketTypeId: string, userData: { name: string; email: string }) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
@@ -206,34 +206,59 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addParticipant = async (eventId: string, data: { name: string; email: string; ticketTypeId: string }) => {
+  const addParticipant = async (eventId: string, data: { name: string; email: string; ticketTypeId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed") => {
     try {
-      const { error: participantError } = await supabase.from("participants").insert([{
-        event_id: eventId,
-        name: data.name,
-        email: data.email,
-        ticket_type_id: data.ticketTypeId,
-        registration_date: new Date().toISOString(),
-        status: "confirmed"
-      }]);
-      
-      if (participantError) throw participantError;
+      // 1. Check if participant already exists for this event and email
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from("participants")
+        .select("id, status")
+        .eq("event_id", eventId)
+        .eq("email", data.email)
+        .maybeSingle();
 
-      // Update sold count for ticket type
-      const event = events.find(e => e.id === eventId);
-      const ticketType = event?.ticketTypes.find(t => t.id === data.ticketTypeId);
-      if (ticketType) {
-        const { error: ticketError } = await supabase
-          .from("ticket_types")
-          .update({ sold: (ticketType.sold || 0) + 1 })
-          .eq("id", data.ticketTypeId);
-        if (ticketError) throw ticketError;
+      if (checkError) throw checkError;
+
+      if (existingParticipant) {
+        // If they exist and we are just updating status (e.g. from pending to confirmed or staying pending)
+        if (existingParticipant.status !== status) {
+          const { error: updateError } = await supabase
+            .from("participants")
+            .update({ status })
+            .eq("id", existingParticipant.id);
+          
+          if (updateError) throw updateError;
+        }
+      } else {
+        // 2. Insert new participant
+        const { error: participantError } = await supabase.from("participants").insert([{
+          event_id: eventId,
+          name: data.name,
+          email: data.email,
+          ticket_type_id: data.ticketTypeId,
+          registration_date: new Date().toISOString(),
+          status: status
+        }]);
+        
+        if (participantError) throw participantError;
+
+        // 3. Update sold count for ticket type (only on new insertion)
+        const event = events.find(e => e.id === eventId);
+        const ticketType = event?.ticketTypes.find(t => t.id === data.ticketTypeId);
+        if (ticketType) {
+          const { error: ticketError } = await supabase
+            .from("ticket_types")
+            .update({ sold: (ticketType.sold || 0) + 1 })
+            .eq("id", data.ticketTypeId);
+          if (ticketError) throw ticketError;
+        }
       }
 
-      toast({
-        title: "Registration Successful!",
-        description: "You have been registered for the event.",
-      });
+      if (status === "confirmed") {
+        toast({
+          title: "Registration Successful!",
+          description: "You have been registered for the event.",
+        });
+      }
       
       await fetchEvents();
     } catch (error: any) {
@@ -284,27 +309,33 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // 2. Open Midtrans Snap Popup
       return new Promise<void>((resolve, reject) => {
+        const participantData = {
+            ...userData,
+            ticketTypeId: ticketTypeId
+        };
+
         window.snap.pay(token, {
           onSuccess: async (result) => {
             console.log("Payment Success:", result);
             try {
-              await addParticipant(eventId, {
-                name: userData.name,
-                email: userData.email,
-                ticketTypeId: ticketTypeId
-              });
+              await addParticipant(eventId, participantData, "confirmed");
               resolve();
             } catch (err) {
               reject(err);
             }
           },
-          onPending: (result) => {
+          onPending: async (result) => {
             console.log("Payment Pending:", result);
-            toast({
-              title: "Payment Pending",
-              description: "Your payment is being processed. Please complete it to finish registration.",
-            });
-            resolve();
+            try {
+              await addParticipant(eventId, participantData, "pending");
+              toast({
+                title: "Payment Pending",
+                description: "Your payment is being processed. You can find this race in 'My Race' tab.",
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
           },
           onError: (result) => {
             console.error("Payment Error:", result);
@@ -315,9 +346,19 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
             reject(new Error("Payment failed."));
           },
-          onClose: () => {
+          onClose: async () => {
             console.log("Payment Popup Closed");
-            reject(new Error("Payment process cancelled."));
+            try {
+              // Create a pending registration if the window is closed
+              await addParticipant(eventId, participantData, "pending");
+              toast({
+                title: "Registration Pending",
+                description: "Payment was not completed. Your registration has been saved as pending.",
+              });
+              resolve();
+            } catch (err) {
+              reject(new Error("Payment process cancelled."));
+            }
           }
         });
       });

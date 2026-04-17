@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEvents } from "@/contexts/EventContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,10 +10,14 @@ import { RunningEvent } from "@/data/types";
 import { Plus, MapPin, CalendarDays, Users, DollarSign, Pencil, Eye, EyeOff } from "lucide-react";
 
 export default function AdminEventsPage() {
-  const { events, addEvent, updateEvent, toggleEventVisibility, isLoading } = useEvents();
+  const { events, addEvent, updateEvent, toggleEventVisibility, isLoading, refreshEvents } = useEvents();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<RunningEvent | null>(null);
+
+  useEffect(() => {
+    refreshEvents();
+  }, []);
 
   const handleCreate = () => {
     setEditingEvent(null);
