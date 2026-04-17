@@ -3,18 +3,36 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, Trophy, Calendar, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 export function UserNavbar() {
   const { signOut, user, session } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navItems = session ? [
     { title: "Events", url: "/", icon: Calendar },
     { title: "My Race", url: "/my-race", icon: Trophy },
     { title: "Profile", url: "/profile", icon: User },
   ] : [];
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <nav className="border-b bg-background sticky top-0 z-50">
@@ -57,9 +75,26 @@ export function UserNavbar() {
                   <span className="text-muted-foreground leading-tight">Signed in as</span>
                   <span className="font-medium leading-tight truncate max-w-[150px]">{user?.email}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => signOut()} title="Log Out">
-                  <LogOut className="h-5 w-5 text-muted-foreground" />
-                </Button>
+                
+                <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" title="Log Out">
+                      <LogOut className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You will need to sign in again to access your registrations and profile.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleSignOut}>Log Out</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </>
             ) : (
               <div className="flex items-center gap-2">

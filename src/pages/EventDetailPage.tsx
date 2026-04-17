@@ -10,6 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TicketFormDialog } from "@/components/TicketFormDialog";
 import { TicketType } from "@/data/types";
 import { ArrowLeft, Users, DollarSign, Ticket, BarChart3, Plus, Pencil, Trash2, Search, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +34,9 @@ export default function EventDetailPage() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
   const [registeringTicketId, setRegisteringTicketId] = useState<string | null>(null);
+  
+  const [showDeleteEventConfirm, setShowDeleteEventConfirm] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState<TicketType | null>(null);
 
   const totalRegistrations = event?.ticketTypes.reduce((s, t) => s + t.sold, 0) ?? 0;
   const totalRevenue = event?.ticketTypes.reduce((s, t) => s + t.sold * t.price, 0) ?? 0;
@@ -82,10 +96,14 @@ export default function EventDetailPage() {
 
   const handleDeleteEvent = async () => {
     if (!event) return;
-    if (window.confirm(`Are you sure you want to delete the event "${event.name}"? This will remove all associated ticket types and participant records.`)) {
-      await deleteEvent(event.id);
-      navigate("/");
-    }
+    await deleteEvent(event.id);
+    navigate("/");
+  };
+
+  const handleDeleteTicket = async () => {
+    if (!event || !ticketToDelete) return;
+    await deleteTicketType(event.id, ticketToDelete.id);
+    setTicketToDelete(null);
   };
 
   const statusColor = (status: string) => {
@@ -110,9 +128,28 @@ export default function EventDetailPage() {
           </div>
         </div>
         {isAdmin && (
-          <Button variant="destructive" onClick={handleDeleteEvent}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete Event
-          </Button>
+          <AlertDialog open={showDeleteEventConfirm} onOpenChange={setShowDeleteEventConfirm}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Event
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the event
+                  "{event.name}", including all associated ticket types and participant records.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete Event
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
 
@@ -185,7 +222,12 @@ export default function EventDetailPage() {
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTicket(ticket); setTicketDialogOpen(true); }}>
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTicketType(event.id, ticket.id)}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive" 
+                            onClick={() => setTicketToDelete(ticket)}
+                          >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
@@ -270,6 +312,25 @@ export default function EventDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Ticket Confirmation Dialog */}
+      <AlertDialog open={!!ticketToDelete} onOpenChange={(open) => !open && setTicketToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Ticket Type</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the "{ticketToDelete?.name}" ticket type? 
+              This will remove this option from the event.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTicket} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <TicketFormDialog open={ticketDialogOpen} onClose={() => setTicketDialogOpen(false)} onSubmit={handleTicketSubmit} ticket={editingTicket} />
     </div>
