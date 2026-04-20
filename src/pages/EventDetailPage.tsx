@@ -37,7 +37,19 @@ export default function EventDetailPage() {
   const [registeringCategoryId, setRegisteringCategoryId] = useState<string | null>(null);
   
   const [showDeleteEventConfirm, setShowDeleteEventConfirm] = useState(false);
+  const [showDeleteImageConfirm, setShowDeleteImageConfirm] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+
+  const handleRemoveImage = async () => {
+    await handleEventUpdate({ 
+      name: event.name,
+      date: event.date,
+      location: event.location,
+      description: event.description,
+      image_url: "" 
+    });
+    setShowDeleteImageConfirm(false);
+  };
 
   const isAlreadyRegistered = useMemo(() => {
     if (!event || !user?.email) return false;
@@ -155,6 +167,18 @@ export default function EventDetailPage() {
         </div>
       )}
 
+      {/* Event Description (User Only) */}
+      {!isAdmin && event.description && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">About this Event</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Event Image Section (Admin Only) */}
       {isAdmin && (
         <Card>
@@ -189,13 +213,7 @@ export default function EventDetailPage() {
                       variant="outline" 
                       size="sm" 
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleEventUpdate({ 
-                        name: event.name,
-                        date: event.date,
-                        location: event.location,
-                        description: event.description,
-                        image_url: "" 
-                      })}
+                      onClick={() => setShowDeleteImageConfirm(true)}
                     >
                       <Trash2 className="mr-2 h-3 w-3" /> Remove Image
                     </Button>
@@ -206,6 +224,25 @@ export default function EventDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Image Confirmation Dialog */}
+      <AlertDialog open={showDeleteImageConfirm} onOpenChange={setShowDeleteImageConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Cover Image</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the cover image? 
+              This will leave the event with no display image.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveImage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Categories */}
       <Card>
