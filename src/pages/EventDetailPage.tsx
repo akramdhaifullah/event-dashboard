@@ -82,9 +82,10 @@ export default function EventDetailPage() {
     if (!event || !user || isAlreadyRegistered) return;
     
     const name = profile?.full_name || user.email?.split('@')[0] || "Guest";
+    const phone = profile?.phone_number || "";
     setRegisteringCategoryId(categoryId);
     try {
-      await processRegistrationWithPayment(event.id, categoryId, { name, email: user.email || "" });
+      await processRegistrationWithPayment(event.id, categoryId, { name, email: user.email || "", phone });
     } catch (error) {
       console.error("Registration failed:", error);
     } finally {

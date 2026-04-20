@@ -13,8 +13,8 @@ interface EventContextType {
   addCategory: (eventId: string, category: Omit<Category, "id" | "eventId" | "sold">) => Promise<void>;
   updateCategory: (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => Promise<void>;
   deleteCategory: (eventId: string, categoryId: string) => Promise<void>;
-  addParticipant: (eventId: string, data: { name: string; email: string; categoryId: string }, status?: "confirmed" | "pending" | "cancelled") => Promise<void>;
-  processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { name: string; email: string }) => Promise<void>;
+  addParticipant: (eventId: string, data: { name: string; email: string; categoryId: string }, status?: "confirmed" | "pending" | "cancelled", orderId?: string) => Promise<void>;
+  processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { name: string; email: string; phone?: string }) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
 
@@ -173,7 +173,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addParticipant = async (eventId: string, data: { name: string; email: string; categoryId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed") => {
+  const addParticipant = async (eventId: string, data: { name: string; email: string; categoryId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed", orderId?: string) => {
     try {
       const { data: existingParticipant, error: checkError } = await supabase
         .from("participants")
@@ -186,7 +186,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (existingParticipant) {
         if (existingParticipant.status !== status) {
-          const { error: updateError } = await supabase.from("participants").update({ status }).eq("id", existingParticipant.id);
+          const { error: updateError } = await supabase.from("participants").update({ status, order_id: orderId }).eq("id", existingParticipant.id);
           if (updateError) throw updateError;
         }
       } else {
@@ -196,7 +196,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           email: data.email,
           ticket_type_id: data.categoryId,
           registration_date: new Date().toISOString(),
-          status: status
+          status: status,
+          order_id: orderId
         }]);
         if (participantError) throw participantError;
 
@@ -218,16 +219,32 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { name: string; email: string }) => {
+  const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { name: string; email: string; phone?: string }) => {
     try {
       const event = events.find(e => e.id === eventId);
       const category = event?.categories.find(t => t.id === categoryId);
       if (!event || !category) throw new Error("Event or category not found.");
 
+      const orderId = `REG-${Date.now()}-${userData.email.split('@')[0]}`;
+
+      // Insert order into Supabase
+      const { error: orderError } = await supabase.from('orders').insert({
+        id: orderId,
+        customer_email: userData.email,
+        total_amount: category.price,
+        status: 'pending'
+      });
+
+      if (orderError) throw orderError;
+
       const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
         body: {
-          transaction_details: { order_id: `REG-${Date.now()}-${userData.email.split('@')[0]}`, gross_amount: category.price },
-          customer_details: { first_name: userData.name, email: userData.email },
+          transaction_details: { order_id: orderId, gross_amount: category.price },
+          customer_details: { 
+            first_name: userData.name, 
+            email: userData.email,
+            phone: userData.phone 
+          },
           item_details: [{ id: category.id, price: category.price, quantity: 1, name: `${event.name} - ${category.name}` }],
           credit_card: { secure: true },
         },
@@ -236,14 +253,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
 
       return new Promise<void>((resolve, reject) => {
-        const participantData = { ...userData, categoryId };
+        const participantData = { name: userData.name, email: userData.email, categoryId };
         window.snap.pay(functionData.token, {
           onSuccess: async () => {
-            try { await addParticipant(eventId, participantData, "confirmed"); resolve(); } catch (err) { reject(err); }
+            try { await addParticipant(eventId, participantData, "confirmed", orderId); resolve(); } catch (err) { reject(err); }
           },
           onPending: async () => {
             try { 
-              await addParticipant(eventId, participantData, "pending"); 
+              await addParticipant(eventId, participantData, "pending", orderId); 
               toast({ title: "Payment Pending", description: "Your payment is being processed. You can find this race in 'My Race' tab." });
               resolve(); 
             } catch (err) { reject(err); }
@@ -253,11 +270,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             reject(new Error("Payment failed."));
           },
           onClose: async () => {
-            try {
-              await addParticipant(eventId, participantData, "pending");
-              toast({ title: "Registration Pending", description: "Payment was not completed. Your registration has been saved as pending." });
-              resolve();
-            } catch (err) { reject(err); }
+            toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
+            resolve();
           }
         });
       });
