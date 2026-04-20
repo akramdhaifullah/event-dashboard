@@ -3,31 +3,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TicketType } from "@/data/types";
+import { Category } from "@/data/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: { name: string; price: number; capacity: number }) => void;
-  ticket?: TicketType | null;
+  category?: Category | null;
 }
 
-export function TicketFormDialog({ open, onClose, onSubmit, ticket }: Props) {
+export function CategoryFormDialog({ open, onClose, onSubmit, category }: Props) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [capacity, setCapacity] = useState("");
 
   useEffect(() => {
-    if (ticket) {
-      setName(ticket.name);
-      setPrice(String(ticket.price));
-      setCapacity(String(ticket.capacity));
+    if (category) {
+      setName(category.name);
+      setPrice(String(category.price));
+      setCapacity(String(category.capacity));
     } else {
       setName("");
       setPrice("");
       setCapacity("");
     }
-  }, [ticket, open]);
+  }, [category, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,12 +39,12 @@ export function TicketFormDialog({ open, onClose, onSubmit, ticket }: Props) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{ticket ? "Edit Ticket Type" : "Add Ticket Type"}</DialogTitle>
+          <DialogTitle>{category ? "Edit Category" : "Add Category"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="ticketName">Name</Label>
-            <Input id="ticketName" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="categoryName">Name</Label>
+            <Input id="categoryName" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="price">Price (IDR)</Label>
@@ -56,7 +56,7 @@ export function TicketFormDialog({ open, onClose, onSubmit, ticket }: Props) {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{ticket ? "Save" : "Add"}</Button>
+            <Button type="submit">{category ? "Save" : "Add"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

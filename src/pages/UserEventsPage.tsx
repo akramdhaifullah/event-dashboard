@@ -62,8 +62,8 @@ export default function UserEventsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredEvents.map((event) => {
-            const totalCapacity = event.ticketTypes.reduce((sum, t) => sum + t.capacity, 0);
-            const totalSold = event.ticketTypes.reduce((sum, t) => sum + t.sold, 0);
+            const totalCapacity = event.categories.reduce((sum, t) => sum + t.capacity, 0);
+            const totalSold = event.categories.reduce((sum, t) => sum + t.sold, 0);
             const isSoldOut = totalSold >= totalCapacity && totalCapacity > 0;
 
             return (

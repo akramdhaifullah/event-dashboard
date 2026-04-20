@@ -104,7 +104,7 @@ export default function MyRacePage() {
                     </div>
                     <div className="flex items-center gap-2 font-medium">
                       <Ticket className="h-4 w-4 text-primary" />
-                      {participant.ticketTypeName}
+                      {participant.categoryName}
                     </div>
                   </div>
 

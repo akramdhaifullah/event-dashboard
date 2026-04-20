@@ -87,7 +87,7 @@ export default function ParticipantsPage() {
                     <TableHead className="min-w-[150px] font-semibold">Name</TableHead>
                     <TableHead className="min-w-[200px] font-semibold">Email</TableHead>
                     <TableHead className="min-w-[180px] font-semibold">Event</TableHead>
-                    <TableHead className="min-w-[150px] font-semibold">Ticket Type</TableHead>
+                    <TableHead className="min-w-[150px] font-semibold">Category</TableHead>
                     <TableHead className="min-w-[150px] font-semibold">Registration Date</TableHead>
                     <TableHead className="min-w-[100px] font-semibold">Status</TableHead>
                   </TableRow>
@@ -98,7 +98,7 @@ export default function ParticipantsPage() {
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell>{p.email}</TableCell>
                       <TableCell>{p.eventName}</TableCell>
-                      <TableCell>{p.ticketTypeName}</TableCell>
+                      <TableCell>{p.categoryName}</TableCell>
                       <TableCell>{new Date(p.registrationDate).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <Badge variant={statusColor(p.status)} className="capitalize">{p.status}</Badge>

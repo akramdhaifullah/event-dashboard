@@ -6,11 +6,11 @@ export interface RunningEvent {
   description: string;
   image_url?: string | null;
   visible: boolean;
-  ticketTypes: TicketType[];
+  categories: Category[];
   participants: Participant[];
 }
 
-export interface TicketType {
+export interface Category {
   id: string;
   eventId: string;
   name: string;
@@ -24,8 +24,8 @@ export interface Participant {
   eventId: string;
   name: string;
   email: string;
-  ticketTypeId: string;
-  ticketTypeName: string;
+  categoryId: string;
+  categoryName: string;
   registrationDate: string;
   status: "confirmed" | "pending" | "cancelled";
 }

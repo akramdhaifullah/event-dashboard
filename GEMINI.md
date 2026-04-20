@@ -1,6 +1,6 @@
 # Cozy Dashboard - Project Context
 
-This project is a modern event management dashboard built with React, Vite, and Supabase. It provides a platform for managing running events, participants, and ticket types, featuring distinct administrative and user interfaces.
+This project is a modern event management dashboard built with React, Vite, and Supabase. It provides a platform for managing running events, participants, and categories, featuring distinct administrative and user interfaces.
 
 ## Project Overview
 

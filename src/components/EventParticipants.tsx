@@ -12,17 +12,17 @@ interface EventParticipantsProps {
 
 export function EventParticipants({ event }: EventParticipantsProps) {
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
 
   const filteredParticipants = useMemo(() => {
     return event.participants.filter((p) => {
       const matchesSearch = !search || 
         p.name.toLowerCase().includes(search.toLowerCase()) || 
         p.email.toLowerCase().includes(search.toLowerCase());
-      const matchesType = !filterType || p.ticketTypeName === filterType;
+      const matchesType = !filterCategory || p.categoryName === filterCategory;
       return matchesSearch && matchesType;
     });
-  }, [event.participants, search, filterType]);
+  }, [event.participants, search, filterCategory]);
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -49,12 +49,12 @@ export function EventParticipants({ event }: EventParticipantsProps) {
           </div>
           <select
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
           >
-            <option value="">All ticket types</option>
-            {event.ticketTypes.map((t) => (
-              <option key={t.id} value={t.name}>{t.name}</option>
+            <option value="">All categories</option>
+            {event.categories.map((cat) => (
+              <option key={cat.id} value={cat.name}>{cat.name}</option>
             ))}
           </select>
         </div>
@@ -65,7 +65,7 @@ export function EventParticipants({ event }: EventParticipantsProps) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Ticket Type</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Registration Date</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -75,7 +75,7 @@ export function EventParticipants({ event }: EventParticipantsProps) {
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell>{p.email}</TableCell>
-                <TableCell>{p.ticketTypeName}</TableCell>
+                <TableCell>{p.categoryName}</TableCell>
                 <TableCell>{new Date(p.registrationDate).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <Badge variant={statusColor(p.status)}>{p.status}</Badge>

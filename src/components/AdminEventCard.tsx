@@ -15,8 +15,8 @@ interface AdminEventCardProps {
 export function AdminEventCard({ event, onEdit, onToggleVisibility }: AdminEventCardProps) {
   const navigate = useNavigate();
 
-  const totalRegistrations = event.ticketTypes.reduce((sum, t) => sum + t.sold, 0);
-  const totalRevenue = event.ticketTypes.reduce((sum, t) => sum + t.sold * t.price, 0);
+  const totalRegistrations = event.categories.reduce((sum, t) => sum + t.sold, 0);
+  const totalRevenue = event.categories.reduce((sum, t) => sum + t.sold * t.price, 0);
 
   return (
     <Card

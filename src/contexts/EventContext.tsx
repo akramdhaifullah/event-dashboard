@@ -1,20 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { RunningEvent, TicketType, Participant } from "@/data/types";
+import { RunningEvent, Category, Participant } from "@/data/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 interface EventContextType {
   events: RunningEvent[];
   isLoading: boolean;
-  addEvent: (event: Omit<RunningEvent, "id" | "ticketTypes" | "participants" | "visible">) => Promise<void>;
+  addEvent: (event: Omit<RunningEvent, "id" | "categories" | "participants" | "visible">) => Promise<void>;
   updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "image_url" | "visible">>) => Promise<void>;
   toggleEventVisibility: (id: string, currentStatus: boolean) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  addTicketType: (eventId: string, ticket: Omit<TicketType, "id" | "eventId" | "sold">) => Promise<void>;
-  updateTicketType: (eventId: string, ticketId: string, data: Partial<Pick<TicketType, "name" | "price" | "capacity">>) => Promise<void>;
-  deleteTicketType: (eventId: string, ticketId: string) => Promise<void>;
-  addParticipant: (eventId: string, data: { name: string; email: string; ticketTypeId: string }, status?: "confirmed" | "pending" | "cancelled") => Promise<void>;
-  processRegistrationWithPayment: (eventId: string, ticketTypeId: string, userData: { name: string; email: string }) => Promise<void>;
+  addCategory: (eventId: string, category: Omit<Category, "id" | "eventId" | "sold">) => Promise<void>;
+  updateCategory: (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => Promise<void>;
+  deleteCategory: (eventId: string, categoryId: string) => Promise<void>;
+  addParticipant: (eventId: string, data: { name: string; email: string; categoryId: string }, status?: "confirmed" | "pending" | "cancelled") => Promise<void>;
+  processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { name: string; email: string }) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
 
@@ -48,7 +48,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const combinedEvents: RunningEvent[] = eventsRes.data.map((event) => ({
         ...event,
         visible: event.visible ?? true,
-        ticketTypes: ticketsRes.data
+        categories: ticketsRes.data
           .filter((t) => t.event_id === event.id)
           .map(t => ({
             id: t.id,
@@ -67,8 +67,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               eventId: p.event_id,
               name: p.name,
               email: p.email,
-              ticketTypeId: p.ticket_type_id,
-              ticketTypeName: ticketType ? ticketType.name : "Unknown",
+              categoryId: p.ticket_type_id,
+              categoryName: ticketType ? ticketType.name : "Unknown",
               registrationDate: p.registration_date,
               status: p.status
             };
@@ -99,7 +99,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  const addEvent = async (data: Omit<RunningEvent, "id" | "ticketTypes" | "participants" | "visible">) => {
+  const addEvent = async (data: Omit<RunningEvent, "id" | "categories" | "participants" | "visible">) => {
     try {
       const { error } = await supabase.from("events").insert([{ ...data, visible: false }]);
       if (error) throw error;
@@ -143,37 +143,37 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addTicketType = async (eventId: string, ticket: Omit<TicketType, "id" | "eventId" | "sold">) => {
+  const addCategory = async (eventId: string, category: Omit<Category, "id" | "eventId" | "sold">) => {
     try {
-      const { error } = await supabase.from("ticket_types").insert([{ ...ticket, event_id: eventId, sold: 0 }]);
+      const { error } = await supabase.from("ticket_types").insert([{ ...category, event_id: eventId, sold: 0 }]);
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      handleSupabaseError(error, "Error adding ticket type");
+      handleSupabaseError(error, "Error adding category");
     }
   };
 
-  const updateTicketType = async (eventId: string, ticketId: string, data: Partial<Pick<TicketType, "name" | "price" | "capacity">>) => {
+  const updateCategory = async (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => {
     try {
-      const { error } = await supabase.from("ticket_types").update(data).eq("id", ticketId);
+      const { error } = await supabase.from("ticket_types").update(data).eq("id", categoryId);
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      handleSupabaseError(error, "Error updating ticket type");
+      handleSupabaseError(error, "Error updating category");
     }
   };
 
-  const deleteTicketType = async (eventId: string, ticketId: string) => {
+  const deleteCategory = async (eventId: string, categoryId: string) => {
     try {
-      const { error } = await supabase.from("ticket_types").delete().eq("id", ticketId);
+      const { error } = await supabase.from("ticket_types").delete().eq("id", categoryId);
       if (error) throw error;
       await fetchEvents();
     } catch (error: any) {
-      handleSupabaseError(error, "Error deleting ticket type");
+      handleSupabaseError(error, "Error deleting category");
     }
   };
 
-  const addParticipant = async (eventId: string, data: { name: string; email: string; ticketTypeId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed") => {
+  const addParticipant = async (eventId: string, data: { name: string; email: string; categoryId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed") => {
     try {
       const { data: existingParticipant, error: checkError } = await supabase
         .from("participants")
@@ -194,16 +194,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           event_id: eventId,
           name: data.name,
           email: data.email,
-          ticket_type_id: data.ticketTypeId,
+          ticket_type_id: data.categoryId,
           registration_date: new Date().toISOString(),
           status: status
         }]);
         if (participantError) throw participantError;
 
         const event = events.find(e => e.id === eventId);
-        const ticketType = event?.ticketTypes.find(t => t.id === data.ticketTypeId);
-        if (ticketType) {
-          const { error: ticketError } = await supabase.from("ticket_types").update({ sold: (ticketType.sold || 0) + 1 }).eq("id", data.ticketTypeId);
+        const category = event?.categories.find(t => t.id === data.categoryId);
+        if (category) {
+          const { error: ticketError } = await supabase.from("ticket_types").update({ sold: (category.sold || 0) + 1 }).eq("id", data.categoryId);
           if (ticketError) throw ticketError;
         }
       }
@@ -218,17 +218,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const processRegistrationWithPayment = async (eventId: string, ticketTypeId: string, userData: { name: string; email: string }) => {
+  const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { name: string; email: string }) => {
     try {
       const event = events.find(e => e.id === eventId);
-      const ticketType = event?.ticketTypes.find(t => t.id === ticketTypeId);
-      if (!event || !ticketType) throw new Error("Event or ticket type not found.");
+      const category = event?.categories.find(t => t.id === categoryId);
+      if (!event || !category) throw new Error("Event or category not found.");
 
       const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
         body: {
-          transaction_details: { order_id: `REG-${Date.now()}-${userData.email.split('@')[0]}`, gross_amount: ticketType.price },
+          transaction_details: { order_id: `REG-${Date.now()}-${userData.email.split('@')[0]}`, gross_amount: category.price },
           customer_details: { first_name: userData.name, email: userData.email },
-          item_details: [{ id: ticketType.id, price: ticketType.price, quantity: 1, name: `${event.name} - ${ticketType.name}` }],
+          item_details: [{ id: category.id, price: category.price, quantity: 1, name: `${event.name} - ${category.name}` }],
           credit_card: { secure: true },
         },
       });
@@ -236,7 +236,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
 
       return new Promise<void>((resolve, reject) => {
-        const participantData = { ...userData, ticketTypeId };
+        const participantData = { ...userData, categoryId };
         window.snap.pay(functionData.token, {
           onSuccess: async () => {
             try { await addParticipant(eventId, participantData, "confirmed"); resolve(); } catch (err) { reject(err); }
@@ -270,7 +270,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <EventContext.Provider value={{ 
         events, isLoading, addEvent, updateEvent, toggleEventVisibility, deleteEvent, 
-        addTicketType, updateTicketType, deleteTicketType, addParticipant, 
+        addCategory, updateCategory, deleteCategory, addParticipant, 
         processRegistrationWithPayment, refreshEvents: fetchEvents 
     }}>
       {children}

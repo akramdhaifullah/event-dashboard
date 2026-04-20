@@ -5,9 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TicketFormDialog } from "@/components/TicketFormDialog";
+import { CategoryFormDialog } from "@/components/CategoryFormDialog";
 import { EventFormDialog } from "@/components/EventFormDialog";
-import { TicketType, RunningEvent } from "@/data/types";
+import { Category, RunningEvent } from "@/data/types";
 import { ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import {
   AlertDialog,
@@ -26,18 +26,18 @@ import { EventParticipants } from "@/components/EventParticipants";
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, updateEvent, addTicketType, updateTicketType, deleteTicketType, processRegistrationWithPayment, deleteEvent } = useEvents();
+  const { events, updateEvent, addCategory, updateCategory, deleteCategory, processRegistrationWithPayment, deleteEvent } = useEvents();
   const { isAdmin, user, profile } = useAuth();
   
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
 
-  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
-  const [editingTicket, setEditingTicket] = useState<TicketType | null>(null);
-  const [registeringTicketId, setRegisteringTicketId] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [registeringCategoryId, setRegisteringCategoryId] = useState<string | null>(null);
   
   const [showDeleteEventConfirm, setShowDeleteEventConfirm] = useState(false);
-  const [ticketToDelete, setTicketToDelete] = useState<TicketType | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
   const isAlreadyRegistered = useMemo(() => {
     if (!event || !user?.email) return false;
@@ -53,11 +53,11 @@ export default function EventDetailPage() {
     );
   }
 
-  const handleTicketSubmit = (data: { name: string; price: number; capacity: number }) => {
-    if (editingTicket) {
-      updateTicketType(event.id, editingTicket.id, data);
+  const handleCategorySubmit = (data: { name: string; price: number; capacity: number }) => {
+    if (editingCategory) {
+      updateCategory(event.id, editingCategory.id, data);
     } else {
-      addTicketType(event.id, data);
+      addCategory(event.id, data);
     }
   };
 
@@ -66,17 +66,17 @@ export default function EventDetailPage() {
     setEventDialogOpen(false);
   };
 
-  const handleRegister = async (ticketTypeId: string) => {
+  const handleRegister = async (categoryId: string) => {
     if (!event || !user || isAlreadyRegistered) return;
     
     const name = profile?.full_name || user.email?.split('@')[0] || "Guest";
-    setRegisteringTicketId(ticketTypeId);
+    setRegisteringCategoryId(categoryId);
     try {
-      await processRegistrationWithPayment(event.id, ticketTypeId, { name, email: user.email || "" });
+      await processRegistrationWithPayment(event.id, categoryId, { name, email: user.email || "" });
     } catch (error) {
       console.error("Registration failed:", error);
     } finally {
-      setRegisteringTicketId(null);
+      setRegisteringCategoryId(null);
     }
   };
 
@@ -85,10 +85,10 @@ export default function EventDetailPage() {
     navigate("/");
   };
 
-  const handleDeleteTicket = async () => {
-    if (!ticketToDelete) return;
-    await deleteTicketType(event.id, ticketToDelete.id);
-    setTicketToDelete(null);
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    await deleteCategory(event.id, categoryToDelete.id);
+    setCategoryToDelete(null);
   };
 
   return (
@@ -119,7 +119,7 @@ export default function EventDetailPage() {
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This action cannot be undone. This will permanently delete the event
-                    "{event.name}", including all associated ticket types and participant records.
+                    "{event.name}", including all associated categories and participant records.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -143,6 +143,17 @@ export default function EventDetailPage() {
 
       {/* KPI Cards */}
       {isAdmin && <EventKPICards event={event} />}
+
+      {/* User View: Event Cover Image */}
+      {!isAdmin && event.image_url && (
+        <div className="w-full aspect-video md:aspect-[2.5/1] max-h-[400px] overflow-hidden rounded-xl border shadow-sm">
+          <img 
+            src={event.image_url} 
+            alt={event.name} 
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       {/* Event Image Section (Admin Only) */}
       {isAdmin && (
@@ -196,13 +207,13 @@ export default function EventDetailPage() {
         </Card>
       )}
 
-      {/* Ticket Types */}
+      {/* Categories */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Ticket Types</CardTitle>
+          <CardTitle className="text-lg">Categories</CardTitle>
           {isAdmin && (
-            <Button size="sm" onClick={() => { setEditingTicket(null); setTicketDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Add Ticket
+            <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" /> Add Category
             </Button>
           )}
         </CardHeader>
@@ -219,28 +230,28 @@ export default function EventDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {event.ticketTypes.map((ticket) => {
-                const isProcessing = registeringTicketId === ticket.id;
-                const isSoldOut = ticket.sold >= ticket.capacity;
+              {event.categories.map((category) => {
+                const isProcessing = registeringCategoryId === category.id;
+                const isSoldOut = category.sold >= category.capacity;
                 
                 return (
-                  <TableRow key={ticket.id}>
-                    <TableCell className="font-medium">{ticket.name}</TableCell>
-                    <TableCell>IDR {ticket.price.toLocaleString()}</TableCell>
-                    <TableCell>{ticket.capacity}</TableCell>
-                    <TableCell>{ticket.sold}</TableCell>
-                    <TableCell>{ticket.capacity - ticket.sold}</TableCell>
+                  <TableRow key={category.id}>
+                    <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell>IDR {category.price.toLocaleString()}</TableCell>
+                    <TableCell>{category.capacity}</TableCell>
+                    <TableCell>{category.sold}</TableCell>
+                    <TableCell>{category.capacity - category.sold}</TableCell>
                     <TableCell>
                       {isAdmin ? (
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTicket(ticket); setTicketDialogOpen(true); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(category); setCategoryDialogOpen(true); }}>
                             <Pencil className="h-3 w-3" />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 text-destructive" 
-                            onClick={() => setTicketToDelete(ticket)}
+                            onClick={() => setCategoryToDelete(category)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -248,8 +259,8 @@ export default function EventDetailPage() {
                       ) : (
                         <Button 
                           size="sm" 
-                          disabled={isSoldOut || registeringTicketId !== null || isAlreadyRegistered}
-                          onClick={() => handleRegister(ticket.id)}
+                          disabled={isSoldOut || registeringCategoryId !== null || isAlreadyRegistered}
+                          onClick={() => handleRegister(category.id)}
                         >
                           {isProcessing ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -261,9 +272,9 @@ export default function EventDetailPage() {
                   </TableRow>
                 );
               })}
-              {event.ticketTypes.length === 0 && (
+              {event.categories.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">No ticket types yet.</TableCell>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -274,26 +285,26 @@ export default function EventDetailPage() {
       {/* Participants */}
       {isAdmin && <EventParticipants event={event} />}
 
-      {/* Delete Ticket Confirmation Dialog */}
-      <AlertDialog open={!!ticketToDelete} onOpenChange={(open) => !open && setTicketToDelete(null)}>
+      {/* Delete Category Confirmation Dialog */}
+      <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Ticket Type</AlertDialogTitle>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the "{ticketToDelete?.name}" ticket type? 
+              Are you sure you want to delete the "{categoryToDelete?.name}" category? 
               This will remove this option from the event.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTicket} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDeleteCategory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <TicketFormDialog open={ticketDialogOpen} onClose={() => setTicketDialogOpen(false)} onSubmit={handleTicketSubmit} ticket={editingTicket} />
+      <CategoryFormDialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} onSubmit={handleCategorySubmit} category={editingCategory} />
       <EventFormDialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} onSubmit={handleEventUpdate} event={event} />
     </div>
   );

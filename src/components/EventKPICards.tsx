@@ -7,15 +7,15 @@ interface EventKPICardsProps {
 }
 
 export function EventKPICards({ event }: EventKPICardsProps) {
-  const totalRegistrations = event.ticketTypes.reduce((s, t) => s + t.sold, 0);
-  const totalRevenue = event.ticketTypes.reduce((s, t) => s + t.sold * t.price, 0);
-  const totalCapacity = event.ticketTypes.reduce((s, t) => s + t.capacity, 0);
+  const totalRegistrations = event.categories.reduce((s, t) => s + t.sold, 0);
+  const totalRevenue = event.categories.reduce((s, t) => s + t.sold * t.price, 0);
+  const totalCapacity = event.categories.reduce((s, t) => s + t.capacity, 0);
   const remaining = totalCapacity - totalRegistrations;
 
   const kpis = [
     { label: "Registrations", value: totalRegistrations, icon: Users },
     { label: "Revenue", value: `IDR ${totalRevenue.toLocaleString()}`, icon: DollarSign },
-    { label: "Ticket Types", value: event.ticketTypes.length, icon: Ticket },
+    { label: "Categories", value: event.categories.length, icon: Ticket },
     { label: "Remaining Spots", value: remaining, icon: BarChart3 },
   ];
 
