@@ -18,10 +18,6 @@ export default function ParticipantsPage() {
     refreshEvents();
   }, []);
 
-  if (!isAdmin) {
-    return <Navigate to="/" />;
-  }
-
   const allParticipants = useMemo(() => {
     return events.flatMap((e) =>
       e.participants.map((p) => ({ ...p, eventName: e.name }))
@@ -35,6 +31,10 @@ export default function ParticipantsPage() {
       return matchesSearch && matchesEvent;
     });
   }, [allParticipants, search, filterEvent]);
+
+  if (!isAdmin) {
+    return <Navigate to="/" />;
+  }
 
   const statusColor = (status: string) => {
     switch (status) {
