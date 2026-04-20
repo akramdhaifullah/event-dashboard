@@ -14,6 +14,8 @@ interface EventContextType {
   updateCategory: (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => Promise<void>;
   deleteCategory: (eventId: string, categoryId: string) => Promise<void>;
   addParticipant: (eventId: string, data: { name: string; email: string; categoryId: string }, status?: "confirmed" | "pending" | "cancelled", orderId?: string) => Promise<void>;
+  addOrder: (order: { id: string; customer_email: string; total_amount: number; status: string }) => Promise<void>;
+  updateOrder: (id: string, status: string) => Promise<void>;
   processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { name: string; email: string; phone?: string }) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
@@ -219,6 +221,26 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const addOrder = async (order: { id: string; customer_email: string; total_amount: number; status: string }) => {
+    try {
+      const { error } = await supabase.from('orders').insert([order]);
+      if (error) throw error;
+    } catch (error: any) {
+      handleSupabaseError(error, "Error adding order");
+      throw error;
+    }
+  };
+
+  const updateOrder = async (id: string, status: string) => {
+    try {
+      const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+      if (error) throw error;
+    } catch (error: any) {
+      handleSupabaseError(error, "Error updating order");
+      throw error;
+    }
+  };
+
   const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { name: string; email: string; phone?: string }) => {
     try {
       const event = events.find(e => e.id === eventId);
@@ -228,14 +250,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const orderId = `REG-${Date.now()}-${userData.email.split('@')[0]}`;
 
       // Insert order into Supabase
-      const { error: orderError } = await supabase.from('orders').insert({
+      await addOrder({
         id: orderId,
         customer_email: userData.email,
         total_amount: category.price,
         status: 'pending'
       });
-
-      if (orderError) throw orderError;
 
       const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
         body: {
@@ -256,10 +276,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const participantData = { name: userData.name, email: userData.email, categoryId };
         window.snap.pay(functionData.token, {
           onSuccess: async () => {
-            try { await addParticipant(eventId, participantData, "confirmed", orderId); resolve(); } catch (err) { reject(err); }
+            try { 
+              await updateOrder(orderId, "paid");
+              await addParticipant(eventId, participantData, "confirmed", orderId); 
+              resolve(); 
+            } catch (err) { reject(err); }
           },
           onPending: async () => {
             try { 
+              await updateOrder(orderId, "pending");
               await addParticipant(eventId, participantData, "pending", orderId); 
               toast({ title: "Payment Pending", description: "Your payment is being processed. You can find this race in 'My Race' tab." });
               resolve(); 
@@ -284,7 +309,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <EventContext.Provider value={{ 
         events, isLoading, addEvent, updateEvent, toggleEventVisibility, deleteEvent, 
-        addCategory, updateCategory, deleteCategory, addParticipant, 
+        addCategory, updateCategory, deleteCategory, addParticipant, addOrder, updateOrder,
         processRegistrationWithPayment, refreshEvents: fetchEvents 
     }}>
       {children}
