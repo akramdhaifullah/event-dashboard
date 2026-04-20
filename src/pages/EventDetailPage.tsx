@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TicketFormDialog } from "@/components/TicketFormDialog";
-import { TicketType } from "@/data/types";
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle2 } from "lucide-react";
+import { EventFormDialog } from "@/components/EventFormDialog";
+import { TicketType, RunningEvent } from "@/data/types";
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,12 +26,13 @@ import { EventParticipants } from "@/components/EventParticipants";
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, addTicketType, updateTicketType, deleteTicketType, processRegistrationWithPayment, deleteEvent } = useEvents();
+  const { events, updateEvent, addTicketType, updateTicketType, deleteTicketType, processRegistrationWithPayment, deleteEvent } = useEvents();
   const { isAdmin, user, profile } = useAuth();
   
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
 
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<TicketType | null>(null);
   const [registeringTicketId, setRegisteringTicketId] = useState<string | null>(null);
   
@@ -57,6 +59,11 @@ export default function EventDetailPage() {
     } else {
       addTicketType(event.id, data);
     }
+  };
+
+  const handleEventUpdate = async (data: { name: string; date: string; location: string; description: string; image_url?: string }) => {
+    await updateEvent(event.id, data);
+    setEventDialogOpen(false);
   };
 
   const handleRegister = async (ticketTypeId: string) => {
@@ -97,28 +104,33 @@ export default function EventDetailPage() {
           </div>
         </div>
         {isAdmin && (
-          <AlertDialog open={showDeleteEventConfirm} onOpenChange={setShowDeleteEventConfirm}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Event
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the event
-                  "{event.name}", including all associated ticket types and participant records.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete Event
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setEventDialogOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" /> Edit Event
+            </Button>
+            <AlertDialog open={showDeleteEventConfirm} onOpenChange={setShowDeleteEventConfirm}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Event
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the event
+                    "{event.name}", including all associated ticket types and participant records.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Delete Event
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         )}
       </div>
 
@@ -131,6 +143,58 @@ export default function EventDetailPage() {
 
       {/* KPI Cards */}
       {isAdmin && <EventKPICards event={event} />}
+
+      {/* Event Image Section (Admin Only) */}
+      {isAdmin && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-md border bg-muted">
+                {event.image_url ? (
+                  <img 
+                    src={event.image_url} 
+                    alt={event.name} 
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-muted/50">
+                    <ImageIcon className="h-8 w-8 text-muted-foreground/20" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 h-24 flex flex-col justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold">Event Cover Image</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {event.image_url ? "This image is currently displayed on the event card." : "No cover image has been set for this event yet."}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEventDialogOpen(true)}>
+                    <Pencil className="mr-2 h-3 w-3" /> {event.image_url ? "Update Image" : "Add Image"}
+                  </Button>
+                  {event.image_url && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleEventUpdate({ 
+                        name: event.name,
+                        date: event.date,
+                        location: event.location,
+                        description: event.description,
+                        image_url: "" 
+                      })}
+                    >
+                      <Trash2 className="mr-2 h-3 w-3" /> Remove Image
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Ticket Types */}
       <Card>
@@ -230,6 +294,7 @@ export default function EventDetailPage() {
       </AlertDialog>
 
       <TicketFormDialog open={ticketDialogOpen} onClose={() => setTicketDialogOpen(false)} onSubmit={handleTicketSubmit} ticket={editingTicket} />
+      <EventFormDialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} onSubmit={handleEventUpdate} event={event} />
     </div>
   );
 }

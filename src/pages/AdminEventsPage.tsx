@@ -27,7 +27,7 @@ export default function AdminEventsPage() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = async (data: { name: string; date: string; location: string; description: string }) => {
+  const handleSubmit = async (data: { name: string; date: string; location: string; description: string; image_url?: string }) => {
     if (editingEvent) {
       await updateEvent(editingEvent.id, data);
     } else {

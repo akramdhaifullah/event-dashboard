@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RunningEvent } from "@/data/types";
-import { MapPin, CalendarDays, Users, DollarSign, Pencil, Eye, EyeOff } from "lucide-react";
+import { MapPin, CalendarDays, Users, DollarSign, Pencil, Eye, EyeOff, Ticket } from "lucide-react";
 
 interface AdminEventCardProps {
   event: RunningEvent;
@@ -20,9 +20,23 @@ export function AdminEventCard({ event, onEdit, onToggleVisibility }: AdminEvent
 
   return (
     <Card
-      className="cursor-pointer transition-shadow hover:shadow-md border-muted-foreground/10"
+      className="cursor-pointer transition-shadow hover:shadow-md border-muted-foreground/10 overflow-hidden flex flex-col"
       onClick={() => navigate(`/events/${event.id}`)}
     >
+      <div className="relative h-32 w-full overflow-hidden bg-muted shrink-0">
+        {event.image_url ? (
+          <img 
+            src={event.image_url} 
+            alt={event.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/30 bg-muted/50">
+            <Ticket className="h-8 w-8 mb-1 opacity-20" />
+            <span className="text-[8px] font-medium uppercase tracking-widest">Lari Terus</span>
+          </div>
+        )}
+      </div>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">

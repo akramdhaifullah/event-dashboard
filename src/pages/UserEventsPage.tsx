@@ -72,18 +72,35 @@ export default function UserEventsPage() {
                 className="group cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 overflow-hidden border-muted-foreground/10 flex flex-col h-full"
                 onClick={() => navigate(`/events/${event.id}`)}
               >
-                <div className="h-2 bg-primary/80 group-hover:h-3 transition-all" />
+                {/* Event Image Placeholder/Display */}
+                <div className="relative h-48 w-full overflow-hidden bg-muted">
+                  {event.image_url ? (
+                    <img 
+                      src={event.image_url} 
+                      alt={event.name}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/40 bg-muted/50">
+                      <div className="h-12 w-12 mb-2 bg-primary/10 rounded flex items-center justify-center">
+                         <Ticket className="h-6 w-6 text-primary" />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Lari Terus</span>
+                    </div>
+                  )}
+                  {isSoldOut && (
+                    <div className="absolute top-4 right-4 z-10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-destructive text-destructive-foreground rounded shadow-lg">
+                      Sold Out
+                    </div>
+                  )}
+                </div>
+                
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <CardTitle className="text-xl leading-tight group-hover:text-primary transition-colors">{event.name}</CardTitle>
                       <CardDescription className="mt-2 line-clamp-2 text-sm">{event.description}</CardDescription>
                     </div>
-                    {isSoldOut && (
-                      <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-destructive text-destructive-foreground rounded shadow-sm">
-                        Sold Out
-                      </div>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="mt-auto pt-4 border-t bg-muted/5">

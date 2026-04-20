@@ -7,7 +7,7 @@ interface EventContextType {
   events: RunningEvent[];
   isLoading: boolean;
   addEvent: (event: Omit<RunningEvent, "id" | "ticketTypes" | "participants" | "visible">) => Promise<void>;
-  updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "visible">>) => Promise<void>;
+  updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "image_url" | "visible">>) => Promise<void>;
   toggleEventVisibility: (id: string, currentStatus: boolean) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   addTicketType: (eventId: string, ticket: Omit<TicketType, "id" | "eventId" | "sold">) => Promise<void>;
@@ -109,7 +109,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const updateEvent = async (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "visible">>) => {
+  const updateEvent = async (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "image_url" | "visible">>) => {
     try {
       const { error } = await supabase.from("events").update(data).eq("id", id);
       if (error) throw error;
