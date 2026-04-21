@@ -28,6 +28,14 @@ export interface Participant {
   categoryName: string;
   registrationDate: string;
   status: "confirmed" | "pending" | "cancelled";
+  bib_name?: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  blood_type?: string | null;
+  phone_number?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relationship?: string | null;
 }
 
 export interface Profile {

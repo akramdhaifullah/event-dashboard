@@ -3,15 +3,6 @@ import { UserNavbar } from "./UserNavbar";
 import { Navigate, useLocation } from "react-router-dom";
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
-  const { isProfileComplete, isAdmin, session } = useAuth();
-  const location = useLocation();
-
-  // If logged in but profile is incomplete, redirect to profile page
-  const isOnProfilePage = location.pathname === "/profile";
-  if (session && !isAdmin && !isProfileComplete && !isOnProfilePage) {
-    return <Navigate to="/profile" replace />;
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-muted/20">
       <UserNavbar />

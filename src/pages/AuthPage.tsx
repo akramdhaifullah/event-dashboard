@@ -4,19 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const isRegister = location.pathname === "/register";
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -24,29 +21,12 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      if (isRegister) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            }
-          }
-        });
-        if (error) throw error;
-        toast({
-          title: "Registration successful",
-          description: "Please check your email for the confirmation link.",
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        navigate("/");
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      navigate("/");
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -62,46 +42,22 @@ export default function AuthPage() {
     <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
       <Card className="w-full max-w-md shadow-lg border-muted-foreground/10">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-2">
-            <Link to="/" className="text-primary hover:opacity-80 transition-opacity">
-              <div className="bg-primary/10 p-2 rounded-full">
-                <ArrowLeft className="h-6 w-6 text-primary" />
-              </div>
-            </Link>
-          </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            {isRegister ? "Create an account" : "Welcome back"}
+            Admin Access
           </CardTitle>
           <CardDescription>
-            {isRegister 
-              ? "Enter your details below to create your account" 
-              : "Enter your email and password to sign in"}
+            Enter your credentials to manage the dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="flex flex-col gap-5">
             <div className="flex flex-col gap-4">
-              {isRegister && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="John Doe"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-              )}
-              
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder="admin@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -119,40 +75,14 @@ export default function AuthPage() {
                   required
                   disabled={loading}
                 />
-                {!isRegister && (
-                  <Link 
-                    to="/login" 
-                    className="text-xs text-muted-foreground hover:text-primary transition-colors w-fit block mt-1"
-                  >
-                    Forgot your password?
-                  </Link>
-                )}
               </div>
             </div>
 
             <Button type="submit" className="w-full mt-1" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isRegister ? "Register" : "Sign In"}
+              Sign In
             </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            {isRegister ? (
-              <p className="text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link to="/login" className="text-primary hover:underline font-medium">
-                  Sign In
-                </Link>
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link to="/register" className="text-primary hover:underline font-medium">
-                  Sign Up
-                </Link>
-              </p>
-            )}
-          </div>
         </CardContent>
       </Card>
     </div>

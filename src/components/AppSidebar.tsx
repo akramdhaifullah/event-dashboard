@@ -32,19 +32,17 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user, isAdmin, isProfileComplete } = useAuth();
+  const { signOut, user } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const menuItems = [
-    ...(!isAdmin ? [{ title: "Profile", url: "/profile", icon: UserIcon, alwaysEnabled: true }] : []),
-    { title: "Events", url: "/", icon: Calendar, alwaysEnabled: false },
-    ...(!isAdmin ? [{ title: "My Race", url: "/my-race", icon: Trophy, alwaysEnabled: false }] : []),
-    ...(isAdmin ? [{ title: "Participants", url: "/participants", icon: Users, alwaysEnabled: true }] : []),
+    { title: "Events", url: "/", icon: Calendar },
+    { title: "Participants", url: "/participants", icon: Users },
   ];
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/login");
+    navigate("/admin");
   };
 
   return (
@@ -52,22 +50,18 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="px-4 pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-            {!collapsed && (isAdmin ? "Admin Manager" : "Event Portal")}
+            {!collapsed && "Admin Manager"}
           </SidebarGroupLabel>
           <SidebarGroupContent className="p-2">
             <SidebarMenu className="gap-1">
               {menuItems.map((item) => {
-                const isDisabled = !isAdmin && !isProfileComplete && !item.alwaysEnabled;
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild disabled={isDisabled} tooltip={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
-                        to={isDisabled ? "#" : item.url}
+                        to={item.url}
                         end={item.url === "/"}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                          isDisabled && "opacity-50 cursor-not-allowed pointer-events-none"
-                        )}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                         activeClassName="bg-primary/10 text-primary"
                       >
                         <item.icon className="h-4 w-4" />

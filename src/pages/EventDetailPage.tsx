@@ -51,20 +51,6 @@ export default function EventDetailPage() {
     setShowDeleteImageConfirm(false);
   };
 
-  const isAlreadyRegistered = useMemo(() => {
-    if (!event || !user?.email) return false;
-    return event.participants.some(p => p.email.toLowerCase() === user.email?.toLowerCase());
-  }, [event, user?.email]);
-
-  if (!event) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Event not found.</p>
-        <Button variant="link" onClick={() => navigate("/")}>Back to events</Button>
-      </div>
-    );
-  }
-
   const handleCategorySubmit = (data: { name: string; price: number; capacity: number }) => {
     if (editingCategory) {
       updateCategory(event.id, editingCategory.id, data);
@@ -78,19 +64,9 @@ export default function EventDetailPage() {
     setEventDialogOpen(false);
   };
 
-  const handleRegister = async (categoryId: string) => {
-    if (!event || !user || isAlreadyRegistered) return;
-    
-    const name = profile?.full_name || user.email?.split('@')[0] || "Guest";
-    const phone = profile?.phone_number || "";
-    setRegisteringCategoryId(categoryId);
-    try {
-      await processRegistrationWithPayment(event.id, categoryId, { name, email: user.email || "", phone });
-    } catch (error) {
-      console.error("Registration failed:", error);
-    } finally {
-      setRegisteringCategoryId(null);
-    }
+  const handleRegister = (categoryId: string) => {
+    if (!event) return;
+    navigate(`/events/${event.id}/register/${categoryId}`);
   };
 
   const handleDeleteEvent = async () => {
@@ -146,13 +122,6 @@ export default function EventDetailPage() {
           </div>
         )}
       </div>
-
-      {isAlreadyRegistered && !isAdmin && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3 text-primary animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <p className="text-sm font-medium">You are registered for this event. See your details below.</p>
-        </div>
-      )}
 
       {/* KPI Cards */}
       {isAdmin && <EventKPICards event={event} />}
@@ -297,13 +266,10 @@ export default function EventDetailPage() {
                       ) : (
                         <Button 
                           size="sm" 
-                          disabled={isSoldOut || registeringCategoryId !== null || isAlreadyRegistered}
+                          disabled={isSoldOut}
                           onClick={() => handleRegister(category.id)}
                         >
-                          {isProcessing ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : null}
-                          {isAlreadyRegistered ? "Already Registered" : (isSoldOut ? "Sold Out" : (isProcessing ? "Processing..." : "Register"))}
+                          {isSoldOut ? "Sold Out" : "Register"}
                         </Button>
                       )}
                     </TableCell>

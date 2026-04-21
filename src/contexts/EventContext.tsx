@@ -13,10 +13,33 @@ interface EventContextType {
   addCategory: (eventId: string, category: Omit<Category, "id" | "eventId" | "sold">) => Promise<void>;
   updateCategory: (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => Promise<void>;
   deleteCategory: (eventId: string, categoryId: string) => Promise<void>;
-  addParticipant: (eventId: string, data: { name: string; email: string; categoryId: string }, status?: "confirmed" | "pending" | "cancelled", orderId?: string) => Promise<void>;
+  addParticipant: (eventId: string, data: { 
+    name: string; 
+    email: string; 
+    categoryId: string;
+    bib_name?: string;
+    dob?: string;
+    gender?: string;
+    blood_type?: string;
+    phone_number?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+  }, status?: "confirmed" | "pending" | "cancelled", orderId?: string) => Promise<void>;
   addOrder: (order: { id: string; customer_email: string; total_amount: number; status: string }) => Promise<void>;
   updateOrder: (id: string, status: string) => Promise<void>;
-  processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { name: string; email: string; phone?: string }) => Promise<void>;
+  processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { 
+    name: string; 
+    email: string;
+    phone?: string;
+    bib_name?: string;
+    dob?: string;
+    gender?: string;
+    blood_type?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+  }) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
 
@@ -72,7 +95,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               categoryId: p.ticket_type_id,
               categoryName: ticketType ? ticketType.name : "Unknown",
               registrationDate: p.registration_date,
-              status: p.status
+              status: p.status,
+              bib_name: p.bib_name,
+              dob: p.dob,
+              gender: p.gender,
+              blood_type: p.blood_type,
+              phone_number: p.phone_number,
+              emergency_contact_name: p.emergency_contact_name,
+              emergency_contact_phone: p.emergency_contact_phone,
+              emergency_contact_relationship: p.emergency_contact_relationship
             };
           }),
       }));
@@ -175,7 +206,19 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addParticipant = async (eventId: string, data: { name: string; email: string; categoryId: string }, status: "confirmed" | "pending" | "cancelled" = "confirmed", orderId?: string) => {
+  const addParticipant = async (eventId: string, data: { 
+    name: string; 
+    email: string; 
+    categoryId: string;
+    bib_name?: string;
+    dob?: string;
+    gender?: string;
+    blood_type?: string;
+    phone_number?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+  }, status: "confirmed" | "pending" | "cancelled" = "confirmed", orderId?: string) => {
     try {
       const { data: existingParticipant, error: checkError } = await supabase
         .from("participants")
@@ -188,7 +231,18 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (existingParticipant) {
         if (existingParticipant.status !== status) {
-          const { error: updateError } = await supabase.from("participants").update({ status, order_id: orderId }).eq("id", existingParticipant.id);
+          const { error: updateError } = await supabase.from("participants").update({ 
+            status, 
+            order_id: orderId,
+            bib_name: data.bib_name,
+            dob: data.dob,
+            gender: data.gender,
+            blood_type: data.blood_type,
+            phone_number: data.phone_number,
+            emergency_contact_name: data.emergency_contact_name,
+            emergency_contact_phone: data.emergency_contact_phone,
+            emergency_contact_relationship: data.emergency_contact_relationship
+          }).eq("id", existingParticipant.id);
           if (updateError) throw updateError;
         }
       } else {
@@ -199,7 +253,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ticket_type_id: data.categoryId,
           registration_date: new Date().toISOString(),
           status: status,
-          order_id: orderId
+          order_id: orderId,
+          bib_name: data.bib_name,
+          dob: data.dob,
+          gender: data.gender,
+          blood_type: data.blood_type,
+          phone_number: data.phone_number,
+          emergency_contact_name: data.emergency_contact_name,
+          emergency_contact_phone: data.emergency_contact_phone,
+          emergency_contact_relationship: data.emergency_contact_relationship
         }]);
         if (participantError) throw participantError;
 
@@ -241,7 +303,18 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { name: string; email: string; phone?: string }) => {
+  const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { 
+    name: string; 
+    email: string; 
+    phone?: string;
+    bib_name?: string;
+    dob?: string;
+    gender?: string;
+    blood_type?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+  }) => {
     try {
       const event = events.find(e => e.id === eventId);
       const category = event?.categories.find(t => t.id === categoryId);
@@ -273,7 +346,19 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
 
       return new Promise<void>((resolve, reject) => {
-        const participantData = { name: userData.name, email: userData.email, categoryId };
+        const participantData = { 
+          name: userData.name, 
+          email: userData.email, 
+          categoryId,
+          bib_name: userData.bib_name,
+          dob: userData.dob,
+          gender: userData.gender,
+          blood_type: userData.blood_type,
+          phone_number: userData.phone,
+          emergency_contact_name: userData.emergency_contact_name,
+          emergency_contact_phone: userData.emergency_contact_phone,
+          emergency_contact_relationship: userData.emergency_contact_relationship
+        };
         window.snap.pay(functionData.token, {
           onSuccess: async () => {
             try { 
@@ -286,7 +371,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             try { 
               await updateOrder(orderId, "pending");
               await addParticipant(eventId, participantData, "pending", orderId); 
-              toast({ title: "Payment Pending", description: "Your payment is being processed. You can find this race in 'My Race' tab." });
+              toast({ title: "Payment Pending", description: "Your payment is being processed. You will be registered once confirmed." });
               resolve(); 
             } catch (err) { reject(err); }
           },
