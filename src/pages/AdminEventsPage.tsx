@@ -8,13 +8,9 @@ import { Plus, CalendarDays } from "lucide-react";
 import { AdminEventCard } from "@/components/AdminEventCard";
 
 export default function AdminEventsPage() {
-  const { events, addEvent, updateEvent, toggleEventVisibility, isLoading, refreshEvents } = useEvents();
+  const { events, addEvent, updateEvent, toggleEventVisibility, isLoading } = useEvents();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<RunningEvent | null>(null);
-
-  useEffect(() => {
-    refreshEvents();
-  }, []);
 
   const handleCreate = () => {
     setEditingEvent(null);

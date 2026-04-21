@@ -13,7 +13,7 @@ export default function AuthPage() {
   const { toast } = useToast();
   const { signIn } = useAuth();
   
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +22,7 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      await signIn(username, password);
+      await signIn(email, password);
       navigate("/");
     } catch (error: any) {
       toast({
@@ -59,12 +59,13 @@ export default function AuthPage() {
           <form onSubmit={handleAuth} className="flex flex-col gap-5">
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={loading}
                 />

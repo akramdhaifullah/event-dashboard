@@ -9,14 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search } from "lucide-react";
 
 export default function ParticipantsPage() {
-  const { events, refreshEvents, isLoading } = useEvents();
+  const { events, isLoading } = useEvents();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   const [filterEvent, setFilterEvent] = useState("");
-
-  useEffect(() => {
-    refreshEvents();
-  }, []);
 
   const allParticipants = useMemo(() => {
     return events.flatMap((e) =>

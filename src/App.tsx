@@ -18,11 +18,11 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { session, isLoading, isAdmin } = useAuth();
+  const { session, isReady, isAdmin } = useAuth();
   const location = useLocation();
 
   // STAGE 1: Initial authentication check
-  if (isLoading) {
+  if (!isReady) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

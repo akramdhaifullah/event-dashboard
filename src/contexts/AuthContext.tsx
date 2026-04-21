@@ -1,23 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-
-// Simplified types to maintain compatibility with the rest of the app
-export interface User {
-  id: string;
-  email: string;
-  app_metadata?: { role?: string };
-}
-
-export interface Session {
-  access_token: string;
-  user: User;
-}
+import { supabase } from "@/lib/supabase";
+import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isAdmin: boolean;
   isLoading: boolean;
-  signIn: (username: string, password: string) => Promise<void>;
+  isReady: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -33,65 +24,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // 1. Initial Session Check (Local Storage)
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("admins")
+        .select("id")
+        .eq("id", userId)
+        .single();
+      
+      return !!data && !error;
+    } catch {
+      return false;
+    }
+  };
+
   useEffect(() => {
-    const initSession = async () => {
-      setIsLoading(true);
-      try {
-        const storedSession = localStorage.getItem("cozy_admin_session");
-        if (storedSession) {
-          const parsedSession = JSON.parse(storedSession);
-          setSession(parsedSession);
-          setUser(parsedSession.user);
-          setIsAdmin(true);
-        }
-      } catch (err) {
-        console.error("AuthProvider: Initialization error:", err);
-      } finally {
+    let mounted = true;
+
+    const handleAuthEvent = async (session: Session | null) => {
+      if (!mounted) return;
+
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const adminStatus = await checkAdminStatus(session.user.id);
+        if (mounted) setIsAdmin(adminStatus);
+      } else {
+        if (mounted) setIsAdmin(false);
+      }
+
+      if (mounted) {
         setIsLoading(false);
+        setIsReady(true);
       }
     };
 
-    initSession();
+    // Listen for auth changes - this also triggers for the initial state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleAuthEvent(session);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const signIn = async (username: string, password: string) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (username === "admin" && password === "admin123") {
-      const mockUser: User = { 
-        id: "admin-id-1", 
-        email: "admin@cozy.local",
-        app_metadata: { role: "admin" }
-      };
-      const mockSession: Session = { 
-        access_token: "mock-jwt-token", 
-        user: mockUser 
-      };
-      
-      setSession(mockSession);
-      setUser(mockUser);
-      setIsAdmin(true);
-      localStorage.setItem("cozy_admin_session", JSON.stringify(mockSession));
-    } else {
-      throw new Error("Invalid username or password");
+    if (error) throw error;
+    
+    if (data.user) {
+      const adminStatus = await checkAdminStatus(data.user.id);
+      if (!adminStatus) {
+        await supabase.auth.signOut();
+        throw new Error("Access denied: Not an administrator");
+      }
     }
   };
 
   const signOut = async () => {
-    // Simulate network request
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setSession(null);
-    setUser(null);
-    setIsAdmin(false);
-    localStorage.removeItem("cozy_admin_session");
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, isAdmin, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, isAdmin, isLoading, isReady, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
