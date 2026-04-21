@@ -77,12 +77,6 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-0 border-t bg-muted/30">
-        {!collapsed && user && (
-          <div className="px-4 py-3 border-b flex flex-col items-start overflow-hidden">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Signed in as</span>
-            <span className="text-xs font-medium truncate w-full">{user.email}</span>
-          </div>
-        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 

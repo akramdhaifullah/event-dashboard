@@ -1,4 +1,3 @@
-import { useAuth } from "@/contexts/AuthContext";
 import { UserNavbar } from "./UserNavbar";
 import { Navigate, useLocation } from "react-router-dom";
 

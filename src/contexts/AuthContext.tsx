@@ -1,13 +1,23 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
-import { Session, User } from "@supabase/supabase-js";
-import { Profile } from "@/data/types";
+import React, { createContext, useContext, useEffect, useState } from "react";
+
+// Simplified types to maintain compatibility with the rest of the app
+export interface User {
+  id: string;
+  email: string;
+  app_metadata?: { role?: string };
+}
+
+export interface Session {
+  access_token: string;
+  user: User;
+}
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isAdmin: boolean;
   isLoading: boolean;
+  signIn: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -24,72 +34,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const lastCheckedUser = useRef<string | null>(null);
 
-  const checkAdminStatus = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
-
-      if (!error && data) {
-        setIsAdmin(data.role === "admin");
-      } else {
-        setIsAdmin(false);
-      }
-    } catch (err) {
-      console.error("Error checking admin status:", err);
-      setIsAdmin(false);
-    }
-  };
-
+  // 1. Initial Session Check (Local Storage)
   useEffect(() => {
     const initSession = async () => {
+      setIsLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await checkAdminStatus(session.user.id);
+        const storedSession = localStorage.getItem("cozy_admin_session");
+        if (storedSession) {
+          const parsedSession = JSON.parse(storedSession);
+          setSession(parsedSession);
+          setUser(parsedSession.user);
+          setIsAdmin(true);
         }
       } catch (err) {
-        console.error("Initialization error:", err);
+        console.error("AuthProvider: Initialization error:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
     initSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (event === "SIGNED_IN" || (event === "TOKEN_REFRESHED" && session?.user)) {
-        if (session?.user && session.user.id !== lastCheckedUser.current) {
-          checkAdminStatus(session.user.id).finally(() => setIsLoading(false));
-          lastCheckedUser.current = session.user.id;
-        }
-      } else if (event === "SIGNED_OUT") {
-        setIsAdmin(false);
-        lastCheckedUser.current = null;
-        setIsLoading(false);
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
+  const signIn = async (username: string, password: string) => {
+    setIsLoading(true);
+    
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (username === "admin" && password === "admin123") {
+      const mockUser: User = { 
+        id: "admin-id-1", 
+        email: "admin@cozy.local",
+        app_metadata: { role: "admin" }
+      };
+      const mockSession: Session = { 
+        access_token: "mock-jwt-token", 
+        user: mockUser 
+      };
+      
+      setSession(mockSession);
+      setUser(mockUser);
+      setIsAdmin(true);
+      localStorage.setItem("cozy_admin_session", JSON.stringify(mockSession));
+    } else {
+      setIsLoading(false);
+      throw new Error("Invalid username or password");
+    }
+    
+    setIsLoading(false);
+  };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setIsLoading(true);
+    // Simulate network request
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setSession(null);
+    setUser(null);
+    setIsAdmin(false);
+    localStorage.removeItem("cozy_admin_session");
+    setIsLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, isAdmin, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, isAdmin, isLoading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

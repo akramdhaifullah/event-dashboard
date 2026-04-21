@@ -27,7 +27,7 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { events, updateEvent, addCategory, updateCategory, deleteCategory, processRegistrationWithPayment, deleteEvent } = useEvents();
-  const { isAdmin, user, profile } = useAuth();
+  const { isAdmin, user } = useAuth();
   
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
 
@@ -230,9 +230,9 @@ export default function EventDetailPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Price</TableHead>
-                <TableHead>Capacity</TableHead>
-                <TableHead>Sold</TableHead>
-                <TableHead>Available</TableHead>
+                {isAdmin && <TableHead>Capacity</TableHead>}
+                {isAdmin && <TableHead>Sold</TableHead>}
+                {isAdmin && <TableHead>Available</TableHead>}
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -245,9 +245,9 @@ export default function EventDetailPage() {
                   <TableRow key={category.id}>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell>IDR {category.price.toLocaleString()}</TableCell>
-                    <TableCell>{category.capacity}</TableCell>
-                    <TableCell>{category.sold}</TableCell>
-                    <TableCell>{category.capacity - category.sold}</TableCell>
+                    {isAdmin && <TableCell>{category.capacity}</TableCell>}
+                    {isAdmin && <TableCell>{category.sold}</TableCell>}
+                    {isAdmin && <TableCell>{category.capacity - category.sold}</TableCell>}
                     <TableCell>
                       {isAdmin ? (
                         <div className="flex gap-1">
@@ -278,7 +278,7 @@ export default function EventDetailPage() {
               })}
               {event.categories.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
+                  <TableCell colSpan={isAdmin ? 6 : 3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>
