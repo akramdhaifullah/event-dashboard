@@ -5,12 +5,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EventProvider } from "@/contexts/EventContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { CartProvider } from "@/contexts/CartContext";
 import Layout from "@/components/Layout";
 import UserLayout from "@/components/UserLayout";
 import AdminEventsPage from "./pages/AdminEventsPage";
 import UserEventsPage from "./pages/UserEventsPage";
 import EventDetailPage from "./pages/EventDetailPage";
 import RegistrationPage from "./pages/RegistrationPage";
+import CartPage from "./pages/CartPage";
+import CheckoutPage from "./pages/CheckoutPage";
 import ParticipantsPage from "./pages/ParticipantsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -21,7 +24,6 @@ const AppRoutes = () => {
   const { session, isReady, isAdmin } = useAuth();
   const location = useLocation();
 
-  // STAGE 1: Initial authentication check
   if (!isReady) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -30,13 +32,11 @@ const AppRoutes = () => {
     );
   }
 
-  // STAGE 2: Handle Admin Login explicitly
   const isAuthPage = location.pathname === "/admin";
   if (isAuthPage) {
     return session && isAdmin ? <Navigate to="/admin/dashboard" replace /> : <AuthPage />;
   }
 
-  // STAGE 3: Admin Layout
   if (session && isAdmin) {
     return (
       <Layout>
@@ -46,7 +46,6 @@ const AppRoutes = () => {
           <Route path="/admin/events" element={<AdminEventsPage />} />
           <Route path="/admin/events/:id" element={<EventDetailPage />} />
           <Route path="/admin/participants" element={<ParticipantsPage />} />
-          {/* Compatibility redirects */}
           <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/participants" element={<Navigate to="/admin/participants" replace />} />
           <Route path="*" element={<NotFound />} />
@@ -55,14 +54,15 @@ const AppRoutes = () => {
     );
   }
 
-  // STAGE 4: User/Guest Layout
   return (
     <UserLayout>
       <Routes>
         <Route path="/" element={<UserEventsPage />} />
         <Route path="/events" element={<UserEventsPage />} />
         <Route path="/events/:id" element={<EventDetailPage />} />
-        <Route path="/events/:id/register/:categoryId" element={<RegistrationPage />} />
+        <Route path="/events/:id/register" element={<RegistrationPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </UserLayout>
@@ -77,7 +77,9 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <EventProvider>
-            <AppRoutes />
+            <CartProvider>
+              <AppRoutes />
+            </CartProvider>
           </EventProvider>
         </BrowserRouter>
       </AuthProvider>

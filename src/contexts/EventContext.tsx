@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { RunningEvent, Category, Participant } from "@/data/types";
+import { RunningEvent, Category, Participant, CartItem } from "@/data/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +40,20 @@ interface EventContextType {
     emergency_contact_phone?: string;
     emergency_contact_relationship?: string;
   }) => Promise<void>;
+  processBulkRegistrationWithPayment: (cart: CartItem[], participantsData: Array<{
+    name: string;
+    email: string;
+    phone?: string;
+    bib_name?: string;
+    dob?: string;
+    gender?: string;
+    blood_type?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+    categoryId: string;
+    eventId: string;
+  }>) => Promise<void>;
   refreshEvents: () => Promise<void>;
 }
 
@@ -59,7 +73,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const fetchEvents = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Optimize: Fetch all resources concurrently
       const [eventsRes, ticketsRes, participantsRes] = await Promise.all([
         supabase.from("events").select("*"),
         supabase.from("ticket_types").select("*"),
@@ -122,7 +135,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     fetchEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSupabaseError = (error: any, title: string) => {
@@ -226,6 +238,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .select("id, status")
         .eq("event_id", eventId)
         .eq("email", data.email)
+        .eq("ticket_type_id", data.categoryId)
         .maybeSingle();
 
       if (checkError) throw checkError;
@@ -273,10 +286,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (ticketError) throw ticketError;
         }
       }
-
-      if (status === "confirmed") {
-        toast({ title: "Registration Successful!", description: "You have been registered for the event." });
-      }
       await fetchEvents();
     } catch (error: any) {
       handleSupabaseError(error, "Error during registration");
@@ -323,7 +332,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const orderId = `REG-${Date.now()}-${userData.email.split('@')[0]}`;
 
-      // Insert order into Supabase
       await addOrder({
         id: orderId,
         customer_email: userData.email,
@@ -392,11 +400,104 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const processBulkRegistrationWithPayment = async (cart: CartItem[], participantsData: Array<{
+    name: string;
+    email: string;
+    phone?: string;
+    bib_name?: string;
+    dob?: string;
+    gender?: string;
+    blood_type?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    emergency_contact_relationship?: string;
+    categoryId: string;
+    eventId: string;
+  }>) => {
+    try {
+      if (cart.length === 0) throw new Error("Cart is empty.");
+
+      const totalAmount = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      const firstEmail = participantsData[0]?.email || "customer@example.com";
+      const orderId = `REG-${Date.now()}-${firstEmail.split('@')[0]}`;
+
+      await addOrder({
+        id: orderId,
+        customer_email: firstEmail,
+        total_amount: totalAmount,
+        status: 'pending'
+      });
+
+      const item_details = cart.map(item => ({
+        id: item.categoryId,
+        price: item.price,
+        quantity: item.quantity,
+        name: `${item.eventName} - ${item.categoryName}`
+      }));
+
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
+        body: {
+          transaction_details: { order_id: orderId, gross_amount: totalAmount },
+          customer_details: { 
+            first_name: participantsData[0]?.name || "Customer", 
+            email: firstEmail,
+            phone: participantsData[0]?.phone 
+          },
+          item_details,
+          credit_card: { secure: true },
+        },
+      });
+
+      if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
+
+      return new Promise<void>((resolve, reject) => {
+        window.snap.pay(functionData.token, {
+          onSuccess: async () => {
+            try { 
+              await updateOrder(orderId, "paid");
+              for (const p of participantsData) {
+                await addParticipant(p.eventId, {
+                  ...p,
+                  phone_number: p.phone,
+                }, "confirmed", orderId);
+              }
+              resolve(); 
+            } catch (err) { reject(err); }
+          },
+          onPending: async () => {
+            try { 
+              await updateOrder(orderId, "pending");
+              for (const p of participantsData) {
+                await addParticipant(p.eventId, {
+                  ...p,
+                  phone_number: p.phone,
+                }, "pending", orderId);
+              }
+              toast({ title: "Payment Pending", description: "Your payment is being processed. You will be registered once confirmed." });
+              resolve(); 
+            } catch (err) { reject(err); }
+          },
+          onError: () => {
+            toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
+            reject(new Error("Payment failed."));
+          },
+          onClose: async () => {
+            toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
+            resolve();
+          }
+        });
+      });
+    } catch (error: any) {
+      handleSupabaseError(error, "Payment Error");
+      throw error;
+    }
+  };
+
   return (
     <EventContext.Provider value={{ 
         events, isLoading, addEvent, updateEvent, toggleEventVisibility, deleteEvent, 
         addCategory, updateCategory, deleteCategory, addParticipant, addOrder, updateOrder,
-        processRegistrationWithPayment, refreshEvents: fetchEvents 
+        processRegistrationWithPayment, processBulkRegistrationWithPayment, refreshEvents: fetchEvents 
     }}>
       {children}
     </EventContext.Provider>

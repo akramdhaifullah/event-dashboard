@@ -2,13 +2,14 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEvents } from "@/contexts/EventContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CategoryFormDialog } from "@/components/CategoryFormDialog";
 import { EventFormDialog } from "@/components/EventFormDialog";
 import { Category, RunningEvent } from "@/data/types";
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle2, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle2, Image as ImageIcon, ShoppingCart, Minus, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -27,19 +28,35 @@ import { EventParticipants } from "@/components/EventParticipants";
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, updateEvent, addCategory, updateCategory, deleteCategory, processRegistrationWithPayment, deleteEvent, isLoading: eventsLoading } = useEvents();
-  const { isAdmin, user } = useAuth();
+  const { events, updateEvent, addCategory, updateCategory, deleteCategory, deleteEvent, isLoading: eventsLoading } = useEvents();
+  const { isAdmin } = useAuth();
+  const { cart, addToCart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
   
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
 
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [registeringCategoryId, setRegisteringCategoryId] = useState<string | null>(null);
   
   const [showDeleteEventConfirm, setShowDeleteEventConfirm] = useState(false);
   const [showDeleteImageConfirm, setShowDeleteImageConfirm] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+
+  // Filter cart to only show items for THIS event
+  const eventCartItems = useMemo(() => cart.filter(item => item.eventId === id), [cart, id]);
+  const eventCartTotal = useMemo(() => eventCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), [eventCartItems]);
+
+  const handleAddToCart = (category: Category) => {
+    if (!event) return;
+    addToCart({
+      eventId: event.id,
+      eventName: event.name,
+      categoryId: category.id,
+      categoryName: category.name,
+      price: category.price,
+      quantity: 1,
+    });
+  };
 
   const handleRemoveImage = async () => {
     if (!event) return;
@@ -66,11 +83,6 @@ export default function EventDetailPage() {
     if (!event) return;
     await updateEvent(event.id, data);
     setEventDialogOpen(false);
-  };
-
-  const handleRegister = (categoryId: string) => {
-    if (!event) return;
-    navigate(`/events/${event.id}/register/${categoryId}`);
   };
 
   const handleDeleteEvent = async () => {
@@ -111,9 +123,7 @@ export default function EventDetailPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
-            {isAdmin && (
-              <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
-            )}
+            <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
           </div>
         </div>
         {isAdmin && (
@@ -147,11 +157,11 @@ export default function EventDetailPage() {
         )}
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards (Admin Only) */}
       {isAdmin && <EventKPICards event={event} />}
 
-      {/* User View: Event Cover Image */}
-      {!isAdmin && event.image_url && (
+      {/* Cover Image */}
+      {event.image_url && (
         <div className="w-full aspect-video md:aspect-[2.5/1] max-h-[400px] overflow-hidden rounded-xl border shadow-sm">
           <img 
             src={event.image_url} 
@@ -207,9 +217,11 @@ export default function EventDetailPage() {
         </Card>
       )}
 
-      <div className="space-y-6">
-        {/* About this Event (User Only) */}
-        {!isAdmin && (
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (2/3) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* About this Event */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">About this Event</CardTitle>
@@ -222,15 +234,86 @@ export default function EventDetailPage() {
               )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Event Details (User Only) */}
-        {!isAdmin && (
+          {/* Categories */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Categories</CardTitle>
+              {isAdmin && (
+                <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryDialogOpen(true); }}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Category
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-6">Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead className="text-right pr-6">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {event.categories.map((category) => {
+                    const isSoldOut = category.sold >= category.capacity;
+                    
+                    return (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium pl-6">{category.name}</TableCell>
+                        <TableCell>IDR {category.price.toLocaleString()}</TableCell>
+                        <TableCell className="text-right pr-6">
+                          {isAdmin ? (
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(category); setCategoryDialogOpen(true); }}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-destructive" 
+                                onClick={() => setCategoryToDelete(category)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              disabled={isSoldOut}
+                              onClick={() => handleAddToCart(category)}
+                            >
+                              {isSoldOut ? "Sold Out" : (
+                                <>
+                                  <ShoppingCart className="mr-2 h-4 w-4" />
+                                  Add to Cart
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {event.categories.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column (1/3) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Event Details */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Event Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pb-6">
               <div className="space-y-2">
                 <div className="flex flex-col">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location</span>
@@ -243,81 +326,83 @@ export default function EventDetailPage() {
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Categories */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Categories</CardTitle>
-            {isAdmin && (
-              <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryDialogOpen(true); }}>
-                <Plus className="mr-2 h-4 w-4" /> Add Category
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Price</TableHead>
-                  {isAdmin && <TableHead>Capacity</TableHead>}
-                  {isAdmin && <TableHead>Sold</TableHead>}
-                  {isAdmin && <TableHead>Available</TableHead>}
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {event.categories.map((category) => {
-                  const isSoldOut = category.sold >= category.capacity;
-                  
-                  return (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell>IDR {category.price.toLocaleString()}</TableCell>
-                      {isAdmin && <TableCell>{category.capacity}</TableCell>}
-                      {isAdmin && <TableCell>{category.sold}</TableCell>}
-                      {isAdmin && <TableCell>{category.capacity - category.sold}</TableCell>}
-                      <TableCell>
-                        {isAdmin ? (
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(category); setCategoryDialogOpen(true); }}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-destructive" 
-                              onClick={() => setCategoryToDelete(category)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
+          {/* Cart Section - Only show if not empty */}
+          {!isAdmin && eventCartItems.length > 0 && (
+            <Card className="border-primary/20 shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Your Cart</CardTitle>
+                </div>
+                <span className="text-sm font-medium bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                  {eventCartItems.reduce((acc, item) => acc + item.quantity, 0)} Items
+                </span>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y max-h-[400px] overflow-auto">
+                  {eventCartItems.map((item) => (
+                    <div key={item.id} className="p-4 flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{item.categoryName}</p>
+                        <p className="text-xs text-muted-foreground">IDR {item.price.toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center border rounded-md">
                           <Button 
-                            size="sm" 
-                            disabled={isSoldOut}
-                            onClick={() => handleRegister(category.id)}
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 rounded-none"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
                           >
-                            {isSoldOut ? "Sold Out" : "Register"}
+                            <Minus className="h-3 w-3" />
                           </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {event.categories.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={isAdmin ? 6 : 3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                          <span className="w-8 text-center text-xs font-medium">{item.quantity}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 rounded-none"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                          onClick={() => removeFromCart(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="p-4 bg-muted/30 space-y-4">
+                    <div className="flex justify-between font-bold">
+                      <span>Subtotal</span>
+                      <span className="text-primary">IDR {eventCartTotal.toLocaleString()}</span>
+                    </div>
+                    <Button 
+                      className="w-full h-11" 
+                      onClick={() => navigate(`/events/${event.id}/register`)}
+                    >
+                      Checkout Now
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
-        {/* Participants (Admin Only) */}
-        {isAdmin && <EventParticipants event={event} />}
+        {/* Admin Participants List */}
+        {isAdmin && (
+          <div className="lg:col-span-3">
+            <EventParticipants event={event} />
+          </div>
+        )}
       </div>
 
       {/* Delete Category Confirmation Dialog */}

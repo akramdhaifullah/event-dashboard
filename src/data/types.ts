@@ -37,3 +37,13 @@ export interface Participant {
   emergency_contact_phone?: string | null;
   emergency_contact_relationship?: string | null;
 }
+
+export interface CartItem {
+  id: string;
+  eventId: string;
+  eventName: string;
+  categoryId: string;
+  categoryName: string;
+  price: number;
+  quantity: number;
+}
