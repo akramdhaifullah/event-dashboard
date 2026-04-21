@@ -58,8 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (username: string, password: string) => {
-    setIsLoading(true);
-    
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -79,22 +77,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAdmin(true);
       localStorage.setItem("cozy_admin_session", JSON.stringify(mockSession));
     } else {
-      setIsLoading(false);
       throw new Error("Invalid username or password");
     }
-    
-    setIsLoading(false);
   };
 
   const signOut = async () => {
-    setIsLoading(true);
     // Simulate network request
     await new Promise(resolve => setTimeout(resolve, 300));
     setSession(null);
     setUser(null);
     setIsAdmin(false);
     localStorage.removeItem("cozy_admin_session");
-    setIsLoading(false);
   };
 
   return (

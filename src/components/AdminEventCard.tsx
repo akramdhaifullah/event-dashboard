@@ -21,7 +21,7 @@ export function AdminEventCard({ event, onEdit, onToggleVisibility }: AdminEvent
   return (
     <Card
       className="cursor-pointer transition-shadow hover:shadow-md border-muted-foreground/10 overflow-hidden flex flex-col"
-      onClick={() => navigate(`/events/${event.id}`)}
+      onClick={() => navigate(`/admin/events/${event.id}`)}
     >
       <div className="relative h-32 w-full overflow-hidden bg-muted shrink-0">
         {event.image_url ? (

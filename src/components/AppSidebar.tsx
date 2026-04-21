@@ -36,8 +36,8 @@ export function AppSidebar() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const menuItems = [
-    { title: "Events", url: "/", icon: Calendar },
-    { title: "Participants", url: "/participants", icon: Users },
+    { title: "Events", url: "/admin/dashboard", icon: Calendar },
+    { title: "Participants", url: "/admin/participants", icon: Users },
   ];
 
   const handleSignOut = async () => {
@@ -60,7 +60,7 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
                         to={item.url}
-                        end={item.url === "/"}
+                        end={item.url === "/admin/dashboard"}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                         activeClassName="bg-primary/10 text-primary"
                       >

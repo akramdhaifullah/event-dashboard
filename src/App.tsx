@@ -33,7 +33,7 @@ const AppRoutes = () => {
   // STAGE 2: Handle Admin Login explicitly
   const isAuthPage = location.pathname === "/admin";
   if (isAuthPage) {
-    return session && isAdmin ? <Navigate to="/" replace /> : <AuthPage />;
+    return session && isAdmin ? <Navigate to="/admin/dashboard" replace /> : <AuthPage />;
   }
 
   // STAGE 3: Admin Layout
@@ -41,9 +41,14 @@ const AppRoutes = () => {
     return (
       <Layout>
         <Routes>
-          <Route path="/" element={<AdminEventsPage />} />
-          <Route path="/events/:id" element={<EventDetailPage />} />
-          <Route path="/participants" element={<ParticipantsPage />} />
+          <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/admin/dashboard" element={<AdminEventsPage />} />
+          <Route path="/admin/events" element={<AdminEventsPage />} />
+          <Route path="/admin/events/:id" element={<EventDetailPage />} />
+          <Route path="/admin/participants" element={<ParticipantsPage />} />
+          {/* Compatibility redirects */}
+          <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/participants" element={<Navigate to="/admin/participants" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
@@ -55,6 +60,7 @@ const AppRoutes = () => {
     <UserLayout>
       <Routes>
         <Route path="/" element={<UserEventsPage />} />
+        <Route path="/events" element={<UserEventsPage />} />
         <Route path="/events/:id" element={<EventDetailPage />} />
         <Route path="/events/:id/register/:categoryId" element={<RegistrationPage />} />
         <Route path="*" element={<NotFound />} />

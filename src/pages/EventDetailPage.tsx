@@ -9,6 +9,7 @@ import { CategoryFormDialog } from "@/components/CategoryFormDialog";
 import { EventFormDialog } from "@/components/EventFormDialog";
 import { Category, RunningEvent } from "@/data/types";
 import { ArrowLeft, Plus, Pencil, Trash2, Loader2, CheckCircle2, Image as ImageIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,7 @@ import { EventParticipants } from "@/components/EventParticipants";
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, updateEvent, addCategory, updateCategory, deleteCategory, processRegistrationWithPayment, deleteEvent } = useEvents();
+  const { events, updateEvent, addCategory, updateCategory, deleteCategory, processRegistrationWithPayment, deleteEvent, isLoading: eventsLoading } = useEvents();
   const { isAdmin, user } = useAuth();
   
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
@@ -41,6 +42,7 @@ export default function EventDetailPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
   const handleRemoveImage = async () => {
+    if (!event) return;
     await handleEventUpdate({ 
       name: event.name,
       date: event.date,
@@ -52,6 +54,7 @@ export default function EventDetailPage() {
   };
 
   const handleCategorySubmit = (data: { name: string; price: number; capacity: number }) => {
+    if (!event) return;
     if (editingCategory) {
       updateCategory(event.id, editingCategory.id, data);
     } else {
@@ -60,6 +63,7 @@ export default function EventDetailPage() {
   };
 
   const handleEventUpdate = async (data: { name: string; date: string; location: string; description: string; image_url?: string }) => {
+    if (!event) return;
     await updateEvent(event.id, data);
     setEventDialogOpen(false);
   };
@@ -70,15 +74,33 @@ export default function EventDetailPage() {
   };
 
   const handleDeleteEvent = async () => {
+    if (!event) return;
     await deleteEvent(event.id);
     navigate("/");
   };
 
   const handleDeleteCategory = async () => {
-    if (!categoryToDelete) return;
+    if (!event || !categoryToDelete) return;
     await deleteCategory(event.id, categoryToDelete.id);
     setCategoryToDelete(null);
   };
+
+  if (eventsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <p className="text-muted-foreground">Event not found.</p>
+        <Button onClick={() => navigate("/")}>Back to Events</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -89,7 +111,9 @@ export default function EventDetailPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
-            <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
+            {isAdmin && (
+              <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
+            )}
           </div>
         </div>
         {isAdmin && (
@@ -135,18 +159,6 @@ export default function EventDetailPage() {
             className="w-full h-full object-cover"
           />
         </div>
-      )}
-
-      {/* Event Description (User Only) */}
-      {!isAdmin && event.description && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">About this Event</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
-          </CardContent>
-        </Card>
       )}
 
       {/* Event Image Section (Admin Only) */}
@@ -195,99 +207,118 @@ export default function EventDetailPage() {
         </Card>
       )}
 
-      {/* Delete Image Confirmation Dialog */}
-      <AlertDialog open={showDeleteImageConfirm} onOpenChange={setShowDeleteImageConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Cover Image</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove the cover image? 
-              This will leave the event with no display image.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveImage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Categories */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Categories</CardTitle>
-          {isAdmin && (
-            <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Add Category
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Price</TableHead>
-                {isAdmin && <TableHead>Capacity</TableHead>}
-                {isAdmin && <TableHead>Sold</TableHead>}
-                {isAdmin && <TableHead>Available</TableHead>}
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {event.categories.map((category) => {
-                const isProcessing = registeringCategoryId === category.id;
-                const isSoldOut = category.sold >= category.capacity;
-                
-                return (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell>IDR {category.price.toLocaleString()}</TableCell>
-                    {isAdmin && <TableCell>{category.capacity}</TableCell>}
-                    {isAdmin && <TableCell>{category.sold}</TableCell>}
-                    {isAdmin && <TableCell>{category.capacity - category.sold}</TableCell>}
-                    <TableCell>
-                      {isAdmin ? (
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(category); setCategoryDialogOpen(true); }}>
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-destructive" 
-                            onClick={() => setCategoryToDelete(category)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button 
-                          size="sm" 
-                          disabled={isSoldOut}
-                          onClick={() => handleRegister(category.id)}
-                        >
-                          {isSoldOut ? "Sold Out" : "Register"}
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {event.categories.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={isAdmin ? 6 : 3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
-                </TableRow>
+      <div className="space-y-6">
+        {/* About this Event (User Only) */}
+        {!isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">About this Event</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {event.description ? (
+                <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
+              ) : (
+                <p className="text-muted-foreground italic text-sm">No description available for this event.</p>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Participants */}
-      {isAdmin && <EventParticipants event={event} />}
+        {/* Event Details (User Only) */}
+        {!isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Event Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location</span>
+                  <span className="text-sm font-medium">{event.location}</span>
+                </div>
+                <div className="flex flex-col pt-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</span>
+                  <span className="text-sm font-medium">{new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Categories */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">Categories</CardTitle>
+            {isAdmin && (
+              <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryDialogOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> Add Category
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Price</TableHead>
+                  {isAdmin && <TableHead>Capacity</TableHead>}
+                  {isAdmin && <TableHead>Sold</TableHead>}
+                  {isAdmin && <TableHead>Available</TableHead>}
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {event.categories.map((category) => {
+                  const isSoldOut = category.sold >= category.capacity;
+                  
+                  return (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell>IDR {category.price.toLocaleString()}</TableCell>
+                      {isAdmin && <TableCell>{category.capacity}</TableCell>}
+                      {isAdmin && <TableCell>{category.sold}</TableCell>}
+                      {isAdmin && <TableCell>{category.capacity - category.sold}</TableCell>}
+                      <TableCell>
+                        {isAdmin ? (
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(category); setCategoryDialogOpen(true); }}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive" 
+                              onClick={() => setCategoryToDelete(category)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            disabled={isSoldOut}
+                            onClick={() => handleRegister(category.id)}
+                          >
+                            {isSoldOut ? "Sold Out" : "Register"}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {event.categories.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={isAdmin ? 6 : 3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Participants (Admin Only) */}
+        {isAdmin && <EventParticipants event={event} />}
+      </div>
 
       {/* Delete Category Confirmation Dialog */}
       <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
