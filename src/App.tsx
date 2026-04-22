@@ -14,6 +14,7 @@ import EventDetailPage from "./pages/EventDetailPage";
 import RegistrationPage from "./pages/RegistrationPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import ConfirmPaymentPage from "./pages/ConfirmPaymentPage";
 import ParticipantsPage from "./pages/ParticipantsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -63,6 +64,7 @@ const AppRoutes = () => {
         <Route path="/events/:id/register" element={<RegistrationPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/confirm-payment" element={<ConfirmPaymentPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </UserLayout>

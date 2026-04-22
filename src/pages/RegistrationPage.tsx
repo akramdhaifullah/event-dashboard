@@ -132,14 +132,8 @@ export default function RegistrationPage() {
       await processBulkRegistrationWithPayment(eventCartItems, participantsData);
       
       // Remove only this event's items from cart
-      // (Actually clearCart is simpler if we assume user usually checks out per event)
       clearCart(); 
-      navigate(`/events/${id}`);
-      
-      toast({
-        title: "Registration Success",
-        description: "You have successfully registered for the event.",
-      });
+      navigate(`/confirm-payment`);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -212,32 +206,6 @@ export default function RegistrationPage() {
                       />
                       <FormField
                         control={form.control}
-                        name={`participants.${index}.email`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="name@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`participants.${index}.phone`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="+62..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
                         name={`participants.${index}.bibName`}
                         render={({ field }) => (
                           <FormItem>
@@ -249,68 +217,101 @@ export default function RegistrationPage() {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`participants.${index}.dob`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Date of Birth</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`participants.${index}.gender`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gender</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`participants.${index}.bloodType`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Blood Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select blood type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="A">A</SelectItem>
-                                <SelectItem value="B">B</SelectItem>
-                                <SelectItem value="AB">AB</SelectItem>
-                                <SelectItem value="O">O</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     </div>
 
                     <div className="mt-8 pt-6 border-t space-y-4">
-                      <h3 className="font-semibold text-base flex items-center gap-2">
-                        <span className="bg-primary/10 text-primary text-[10px] py-0.5 px-2 rounded-full uppercase tracking-wider">Required</span>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Personal Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        <FormField
+                          control={form.control}
+                          name={`participants.${index}.email`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="name@example.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`participants.${index}.phone`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="+62..." {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`participants.${index}.dob`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Date of Birth</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`participants.${index}.gender`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Gender</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select gender" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="male">Male</SelectItem>
+                                  <SelectItem value="female">Female</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`participants.${index}.bloodType`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Blood Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select blood type" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="A">A</SelectItem>
+                                  <SelectItem value="B">B</SelectItem>
+                                  <SelectItem value="AB">AB</SelectItem>
+                                  <SelectItem value="O">O</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t space-y-4">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         Emergency Contact
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">

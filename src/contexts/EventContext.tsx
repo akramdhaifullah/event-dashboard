@@ -388,9 +388,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
             reject(new Error("Payment failed."));
           },
-          onClose: async () => {
+          onClose: () => {
             toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
-            resolve();
+            reject(new Error("Payment cancelled by user."));
           }
         });
       });
@@ -473,7 +473,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   phone_number: p.phone,
                 }, "pending", orderId);
               }
-              toast({ title: "Payment Pending", description: "Your payment is being processed. You will be registered once confirmed." });
               resolve(); 
             } catch (err) { reject(err); }
           },
@@ -481,9 +480,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
             reject(new Error("Payment failed."));
           },
-          onClose: async () => {
+          onClose: () => {
             toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
-            resolve();
+            reject(new Error("Payment cancelled by user."));
           }
         });
       });

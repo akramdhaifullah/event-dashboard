@@ -206,37 +206,6 @@ export default function EventDetailPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">About this Event</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {event.description ? (
-                <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
-              ) : (
-                <p className="text-muted-foreground italic text-sm">No description available for this event.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Event Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location</span>
-                  <span className="text-sm font-medium">{event.location}</span>
-                </div>
-                <div className="flex flex-col pt-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</span>
-                  <span className="text-sm font-medium">{new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Categories</CardTitle>
               <Button size="sm" onClick={() => { setEditingCategory(null); setCategoryDialogOpen(true); }}>
@@ -252,7 +221,7 @@ export default function EventDetailPage() {
                     <TableHead>Capacity</TableHead>
                     <TableHead>Sold</TableHead>
                     <TableHead>Available</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead className="w-[100px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -263,8 +232,8 @@ export default function EventDetailPage() {
                       <TableCell>{category.capacity}</TableCell>
                       <TableCell>{category.sold}</TableCell>
                       <TableCell>{category.capacity - category.sold}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCategory(category); setCategoryDialogOpen(true); }}>
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -280,6 +249,13 @@ export default function EventDetailPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {event.categories.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                        No categories have been added to this event yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -324,9 +300,9 @@ export default function EventDetailPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="pl-6">Name</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead className="text-right pr-6">Actions</TableHead>
+                        <TableHead className="pl-6 w-1/3">Name</TableHead>
+                        <TableHead className="w-full">Price</TableHead>
+                        <TableHead className="text-left pr-6">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -337,23 +313,24 @@ export default function EventDetailPage() {
                         return (
                           <TableRow key={category.id}>
                             <TableCell className="font-medium pl-6">{category.name}</TableCell>
-                            <TableCell>IDR {category.price.toLocaleString()}</TableCell>
-                            <TableCell className="text-right pr-6">
+                            <TableCell className="w-full">IDR {category.price.toLocaleString()}</TableCell>
+                            <TableCell className="text-left pr-6">
                               <Button 
                                 size="sm" 
                                 disabled={isSoldOut || isInCart}
                                 onClick={() => handleAddToCart(category)}
                                 variant={isInCart ? "outline" : "default"}
+                                className="w-32"
                               >
                                 {isSoldOut ? "Sold Out" : isInCart ? (
                                   <>
                                     <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                                    Added to Cart
+                                    Added
                                   </>
                                 ) : (
                                   <>
                                     <ShoppingCart className="mr-2 h-4 w-4" />
-                                    Add to Cart
+                                    Add
                                   </>
                                 )}
                               </Button>
@@ -361,6 +338,13 @@ export default function EventDetailPage() {
                           </TableRow>
                         );
                       })}
+                      {event.categories.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                            No categories available for this event yet.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -444,7 +428,7 @@ export default function EventDetailPage() {
                           className="w-full h-11" 
                           onClick={() => navigate(`/events/${event.id}/register`)}
                         >
-                          Checkout Now
+                          Proceed
                         </Button>
                       </div>
                     </div>

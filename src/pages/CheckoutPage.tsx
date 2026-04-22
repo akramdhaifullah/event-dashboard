@@ -78,14 +78,8 @@ export default function CheckoutPage() {
       
       await processBulkRegistrationWithPayment(cart, participantsData);
       clearCart();
-      navigate("/");
+      navigate("/confirm-payment");
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Checkout Error",
-        description: error.message || "Failed to initiate payment.",
-      });
-    } finally {
       setIsSubmitting(false);
     }
   };
