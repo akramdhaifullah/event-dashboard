@@ -22,7 +22,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { session, isReady, isAdmin } = useAuth();
+  const { session, isReady, isAdmin, isOrganizer } = useAuth();
   const location = useLocation();
 
   if (!isReady) {
@@ -35,10 +35,10 @@ const AppRoutes = () => {
 
   const isAuthPage = location.pathname === "/admin";
   if (isAuthPage) {
-    return session && isAdmin ? <Navigate to="/admin/dashboard" replace /> : <AuthPage />;
+    return session && (isAdmin || isOrganizer) ? <Navigate to="/admin/dashboard" replace /> : <AuthPage />;
   }
 
-  if (session && isAdmin) {
+  if (session && (isAdmin || isOrganizer)) {
     return (
       <Layout>
         <Routes>

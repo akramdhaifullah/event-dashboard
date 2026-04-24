@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useEvents } from "@/contexts/EventContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EventFormDialog } from "@/components/EventFormDialog";
@@ -9,6 +10,7 @@ import { AdminEventCard } from "@/components/AdminEventCard";
 
 export default function AdminEventsPage() {
   const { events, addEvent, updateEvent, toggleEventVisibility, isLoading } = useEvents();
+  const { isAdmin } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<RunningEvent | null>(null);
 
@@ -36,12 +38,18 @@ export default function AdminEventsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage all running events and details</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isAdmin ? "Admin Dashboard" : "Organizer Dashboard"}
+          </h1>
+          <p className="text-muted-foreground">
+            {isAdmin ? "Manage all running events and details" : "Manage your assigned events and details"}
+          </p>
         </div>
-        <Button onClick={handleCreate} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" /> New Event
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleCreate} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" /> New Event
+          </Button>
+        )}
       </div>
 
       {isLoading ? (

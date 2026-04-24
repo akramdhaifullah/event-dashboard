@@ -10,7 +10,7 @@ import { Search } from "lucide-react";
 
 export default function ParticipantsPage() {
   const { events, isLoading } = useEvents();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isOrganizer } = useAuth();
   const [search, setSearch] = useState("");
   const [filterEvent, setFilterEvent] = useState("");
 
@@ -28,7 +28,7 @@ export default function ParticipantsPage() {
     });
   }, [allParticipants, search, filterEvent]);
 
-  if (!isAdmin) {
+  if (!isAdmin && !isOrganizer) {
     return <Navigate to="/" />;
   }
 
