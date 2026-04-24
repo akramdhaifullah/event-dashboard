@@ -29,7 +29,7 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { events, updateEvent, addCategory, updateCategory, deleteCategory, deleteEvent, isLoading: eventsLoading } = useEvents();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isOrganizer } = useAuth();
   const { cart, addToCart, removeFromCart, updateQuantity } = useCart();
   
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
@@ -114,11 +114,13 @@ export default function EventDetailPage() {
     );
   }
 
+  const isManagementMode = isAdmin || isOrganizer;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(isAdmin ? "/admin/dashboard" : "/")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(isManagementMode ? "/admin/dashboard" : "/")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -126,11 +128,13 @@ export default function EventDetailPage() {
             <p className="text-muted-foreground">{event.location} · {new Date(event.date).toLocaleDateString()}</p>
           </div>
         </div>
-        {isAdmin && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {isManagementMode && (
             <Button variant="outline" onClick={() => setEventDialogOpen(true)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit Event
             </Button>
+          )}
+          {isAdmin && (
             <AlertDialog open={showDeleteEventConfirm} onOpenChange={setShowDeleteEventConfirm}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive">
@@ -153,12 +157,12 @@ export default function EventDetailPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {isAdmin ? (
-        /* ADMIN VIEW: Original stacked layout */
+      {isManagementMode ? (
+        /* ADMIN/ORGANIZER VIEW: Original stacked layout */
         <div className="space-y-6">
           <EventKPICards event={event} />
 

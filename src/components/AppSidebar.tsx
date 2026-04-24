@@ -32,7 +32,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut, user, isAdmin, isOrganizer } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const menuItems = [
@@ -50,7 +50,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="px-4 pt-6 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-            {!collapsed && "Admin Manager"}
+            {!collapsed && (isAdmin ? "Admin Manager" : "Organizer Dashboard")}
           </SidebarGroupLabel>
           <SidebarGroupContent className="p-2">
             <SidebarMenu className="gap-1">

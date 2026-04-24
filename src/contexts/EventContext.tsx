@@ -2,9 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { RunningEvent, Category, Participant, CartItem } from "@/data/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "./AuthContext";
 
 interface EventContextType {
-  events: RunningEvent[];
+// ... rest of interface
+
   isLoading: boolean;
   addEvent: (event: Omit<RunningEvent, "id" | "categories" | "participants" | "visible">) => Promise<void>;
   updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "image_url" | "visible">>) => Promise<void>;
@@ -69,12 +71,32 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [events, setEvents] = useState<RunningEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { isAdmin, isOrganizer, managedEventIds } = useAuth();
 
   const fetchEvents = useCallback(async () => {
     setIsLoading(true);
     try {
+      let eventsQuery = supabase.from("events").select("*");
+      
+      if (isAdmin) {
+        // Admin sees all events
+      } else if (isOrganizer) {
+        // Organizer sees only their managed events
+        if (managedEventIds.length > 0) {
+          eventsQuery = eventsQuery.in("id", managedEventIds);
+        } else {
+          // If no managed events, return nothing
+          setEvents([]);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // Guests see only visible events
+        eventsQuery = eventsQuery.eq("visible", true);
+      }
+
       const [eventsRes, ticketsRes, participantsRes] = await Promise.all([
-        supabase.from("events").select("*"),
+        eventsQuery,
         supabase.from("ticket_types").select("*"),
         supabase.from("participants").select("*")
       ]);
@@ -131,11 +153,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, isAdmin, isOrganizer, managedEventIds]);
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [fetchEvents]);
 
   const handleSupabaseError = (error: any, title: string) => {
     toast({
