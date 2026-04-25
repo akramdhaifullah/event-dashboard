@@ -72,15 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const [adminStatus, organizerStatus] = await Promise.all([
-          checkAdminStatus(session.user.id),
-          checkOrganizerStatus(session.user.id)
-        ]);
-        
-        if (mounted) {
-          setIsAdmin(adminStatus);
-          setIsOrganizer(organizerStatus.status);
-          setManagedEventIds(organizerStatus.eventIds);
+        try {
+          const [adminStatus, organizerStatus] = await Promise.all([
+            checkAdminStatus(session.user.id),
+            checkOrganizerStatus(session.user.id)
+          ]);
+          
+          if (mounted) {
+            setIsAdmin(adminStatus);
+            setIsOrganizer(organizerStatus.status);
+            setManagedEventIds(organizerStatus.eventIds);
+          }
+        } catch (error) {
+          console.error("Auth status check failed", error);
         }
       } else {
         if (mounted) {
@@ -96,14 +100,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Listen for auth changes - this also triggers for the initial state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleAuthEvent(session);
-    });
+    // Initialize auth
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      await handleAuthEvent(session);
+      
+      if (mounted) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          handleAuthEvent(session);
+        });
+        return subscription;
+      }
+    };
+
+    const authSubPromise = initAuth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      authSubPromise.then(sub => sub?.unsubscribe());
     };
   }, []);
 

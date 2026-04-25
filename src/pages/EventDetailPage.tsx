@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EventKPICards } from "@/components/EventKPICards";
 import { EventParticipants } from "@/components/EventParticipants";
+import { RegistrationSetup } from "@/components/RegistrationSetup";
+import { RegistrationField } from "@/data/types";
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -95,6 +97,11 @@ export default function EventDetailPage() {
     if (!event || !categoryToDelete) return;
     await deleteCategory(event.id, categoryToDelete.id);
     setCategoryToDelete(null);
+  };
+
+  const handleRegistrationSetupUpdate = async (setup: RegistrationField[]) => {
+    if (!event) return;
+    await updateEvent(event.id, { registration_setup: setup });
   };
 
   if (eventsLoading) {
@@ -266,6 +273,11 @@ export default function EventDetailPage() {
           </Card>
 
           <EventParticipants event={event} />
+
+          <RegistrationSetup 
+            event={event} 
+            onUpdate={handleRegistrationSetupUpdate} 
+          />
         </div>
       ) : (
         /* USER VIEW: New 2-column layout with Cart */

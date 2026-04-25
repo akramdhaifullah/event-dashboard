@@ -24,11 +24,11 @@ export default function AuthPage() {
     try {
       await signIn(email, password);
       navigate("/");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Authentication error",
-        description: error.message,
+        description: error instanceof Error ? error.message : "An unknown error occurred",
       });
     } finally {
       setLoading(false);

@@ -1,3 +1,14 @@
+export interface RegistrationField {
+  id: string;
+  name: string; // The property key in the form
+  label: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'email';
+  required: boolean;
+  group: 'personal' | 'emergency' | 'custom';
+  options?: string[]; // Only for 'select' type
+  isCustom: boolean;
+}
+
 export interface RunningEvent {
   id: string;
   name: string;
@@ -8,6 +19,7 @@ export interface RunningEvent {
   visible: boolean;
   categories: Category[];
   participants: Participant[];
+  registration_setup?: RegistrationField[];
 }
 
 export interface Category {
@@ -36,6 +48,7 @@ export interface Participant {
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
   emergency_contact_relationship?: string | null;
+  custom_fields?: Record<string, unknown> | null;
 }
 
 export interface CartItem {
