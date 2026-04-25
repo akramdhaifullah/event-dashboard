@@ -13,27 +13,48 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RegistrationField } from "@/data/types";
 
-const participantSchema = z.object({
-  fullName: z.string().min(2, "Full name is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z.string().min(10, "Phone number is required"),
-  bibName: z.string().min(2, "Bib name is required"),
-  dob: z.string().min(1, "Date of birth is required"),
-  gender: z.string().min(1, "Gender is required"),
-  bloodType: z.string().min(1, "Blood type is required"),
-  emergencyContactName: z.string().min(2, "Emergency contact name is required"),
-  emergencyContactPhone: z.string().min(10, "Emergency contact phone is required"),
-  emergencyContactRelationship: z.string().min(2, "Relationship is required"),
-  categoryId: z.string(),
-  categoryName: z.string(),
-});
+// Default setup if none exists
+const DEFAULT_REGISTRATION_SETUP: RegistrationField[] = [
+  { id: "1", name: "name", label: "Full Name", type: "text", required: true, group: "personal", isCustom: false },
+  { id: "2", name: "email", label: "Email Address", type: "email", required: true, group: "personal", isCustom: false },
+  { id: "3", name: "phone_number", label: "Phone Number", type: "text", required: true, group: "personal", isCustom: false },
+  { id: "4", name: "bib_name", label: "Bib Name", type: "text", required: true, group: "personal", isCustom: false },
+  { id: "5", name: "dob", label: "Date of Birth", type: "date", required: true, group: "personal", isCustom: false },
+  { id: "6", name: "gender", label: "Gender", type: "select", required: true, group: "personal", isCustom: false, options: ["male", "female"] },
+  { id: "7", name: "blood_type", label: "Blood Type", type: "select", required: true, group: "personal", isCustom: false, options: ["A", "B", "AB", "O"] },
+  { id: "8", name: "emergency_contact_name", label: "Contact Name", type: "text", required: true, group: "emergency", isCustom: false },
+  { id: "9", name: "emergency_contact_phone", label: "Contact Phone", type: "text", required: true, group: "emergency", isCustom: false },
+  { id: "10", name: "emergency_contact_relationship", label: "Relationship", type: "text", required: true, group: "emergency", isCustom: false },
+];
 
-const bulkRegistrationSchema = z.object({
-  participants: z.array(participantSchema),
-});
+function generateSchema(setup: RegistrationField[]) {
+  const schemaShape: Record<string, z.ZodTypeAny> = {};
+  setup.forEach((field) => {
+    let fieldSchema: z.ZodTypeAny = z.string();
+    if (field.required) {
+      fieldSchema = (fieldSchema as z.ZodString).min(1, `${field.label} is required`);
+    } else {
+      fieldSchema = fieldSchema.optional().or(z.literal(""));
+    }
 
-type BulkRegistrationFormValues = z.infer<typeof bulkRegistrationSchema>;
+    if (field.type === "email") {
+      fieldSchema = z.string().email("Invalid email address");
+      if (!field.required) {
+        fieldSchema = fieldSchema.optional().or(z.literal(""));
+      }
+    }
+
+    schemaShape[field.name] = fieldSchema;
+  });
+
+  return z.object({
+    ...schemaShape,
+    categoryId: z.string(),
+    categoryName: z.string(),
+  });
+}
 
 export default function RegistrationPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,13 +66,20 @@ export default function RegistrationPage() {
   const [activeTab, setActiveTab] = useState("0");
 
   const event = useMemo(() => events.find((e) => e.id === id), [events, id]);
+  const setup = useMemo(() => (event?.registration_setup?.length ? event.registration_setup : DEFAULT_REGISTRATION_SETUP), [event]);
   
+  const bulkRegistrationSchema = useMemo(() => z.object({
+    participants: z.array(generateSchema(setup)),
+  }), [setup]);
+
+  type BulkRegistrationFormValues = z.infer<typeof bulkRegistrationSchema>;
+
   // Filter cart to only show items for THIS event
   const eventCartItems = useMemo(() => cart.filter(item => item.eventId === id), [cart, id]);
   
   // Create a flattened list of participants needed based on quantity
   const neededParticipants = useMemo(() => {
-    const list: any[] = [];
+    const list: Array<{ categoryId: string; categoryName: string }> = [];
     eventCartItems.forEach(item => {
       for (let i = 0; i < item.quantity; i++) {
         list.push({
@@ -66,20 +94,16 @@ export default function RegistrationPage() {
   const form = useForm<BulkRegistrationFormValues>({
     resolver: zodResolver(bulkRegistrationSchema),
     defaultValues: {
-      participants: neededParticipants.map(p => ({
-        fullName: "",
-        email: "",
-        phone: "",
-        bibName: "",
-        dob: "",
-        gender: "",
-        bloodType: "",
-        emergencyContactName: "",
-        emergencyContactPhone: "",
-        emergencyContactRelationship: "",
-        categoryId: p.categoryId,
-        categoryName: p.categoryName,
-      })),
+      participants: neededParticipants.map(p => {
+        const defaults: Record<string, string> = {
+          categoryId: p.categoryId,
+          categoryName: p.categoryName,
+        };
+        setup.forEach(f => {
+          defaults[f.name] = "";
+        });
+        return defaults;
+      }),
     },
   });
 
@@ -88,27 +112,39 @@ export default function RegistrationPage() {
     name: "participants",
   });
 
-  // Re-sync form if cart changes (e.g. user goes back and adds more)
+  // Re-sync form if cart changes
   useEffect(() => {
     if (neededParticipants.length > 0 && fields.length === 0) {
       form.reset({
-        participants: neededParticipants.map(p => ({
-          fullName: "",
-          email: "",
-          phone: "",
-          bibName: "",
-          dob: "",
-          gender: "",
-          bloodType: "",
-          emergencyContactName: "",
-          emergencyContactPhone: "",
-          emergencyContactRelationship: "",
-          categoryId: p.categoryId,
-          categoryName: p.categoryName,
-        })),
+        participants: neededParticipants.map(p => {
+          const defaults: Record<string, string> = {
+            categoryId: p.categoryId,
+            categoryName: p.categoryName,
+          };
+          setup.forEach(f => {
+            defaults[f.name] = "";
+          });
+          return defaults;
+        }),
       });
     }
-  }, [neededParticipants, fields.length, form]);
+  }, [neededParticipants, fields.length, form, setup]);
+
+  const groupedFields = useMemo(() => {
+    const groups: Record<string, RegistrationField[]> = {
+      personal: [],
+      emergency: [],
+      custom: []
+    };
+    setup.forEach(f => {
+      if (groups[f.group]) {
+        groups[f.group].push(f);
+      } else {
+        groups.custom.push(f);
+      }
+    });
+    return groups;
+  }, [setup]);
 
   if (!event || neededParticipants.length === 0) {
     return (
@@ -123,26 +159,85 @@ export default function RegistrationPage() {
   const onSubmit = async (values: BulkRegistrationFormValues) => {
     setIsSubmitting(true);
     try {
-      const participantsData = values.participants.map(p => ({
-        ...p,
-        name: p.fullName,
-        eventId: id!,
-      }));
+      const participantsData = values.participants.map(p => {
+        const participantObj = p as Record<string, unknown>;
+        const standardFields: Record<string, unknown> = {
+          categoryId: participantObj.categoryId as string,
+          eventId: id!,
+          name: (participantObj.name as string) || (participantObj.fullName as string) || "Unknown",
+          email: participantObj.email as string,
+        };
+        
+        const customFields: Record<string, unknown> = {};
+        
+        setup.forEach(f => {
+          if (f.isCustom) {
+            customFields[f.name] = participantObj[f.name];
+          } else {
+            const mappedName = f.name === "phone_number" ? "phone" : f.name;
+            standardFields[mappedName] = participantObj[f.name];
+          }
+        });
+
+        return {
+          ...standardFields,
+          custom_fields: customFields,
+        } as unknown; 
+      });
       
-      await processBulkRegistrationWithPayment(eventCartItems, participantsData);
-      
-      // Remove only this event's items from cart
+      await processBulkRegistrationWithPayment(eventCartItems, participantsData as any[]);
       clearCart(); 
       navigate(`/confirm-payment`);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to initiate registration.";
       toast({
         variant: "destructive",
         title: "Registration Error",
-        description: error.message || "Failed to initiate registration.",
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const renderField = (index: number, field: RegistrationField) => {
+    const fieldName = `participants.${index}.${field.name}` as any; // This 'any' is hard to avoid with react-hook-form dynamic paths without complex mapping
+
+    return (
+      <FormField
+        key={field.id}
+        control={form.control}
+        name={fieldName}
+        render={({ field: formField }) => (
+          <FormItem>
+            <FormLabel>{field.label}</FormLabel>
+            <FormControl>
+              {field.type === "select" ? (
+                <Select onValueChange={formField.onChange} defaultValue={formField.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {field.options?.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input 
+                  type={field.type} 
+                  placeholder={field.label} 
+                  {...formField} 
+                />
+              )}
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
   };
 
   return (
@@ -189,173 +284,39 @@ export default function RegistrationPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      <FormField
-                        control={form.control}
-                        name={`participants.${index}.fullName`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter full name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`participants.${index}.bibName`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bib Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Name on race bib" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t space-y-4">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Personal Details
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.email`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email Address</FormLabel>
-                              <FormControl>
-                                <Input type="email" placeholder="name@example.com" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.phone`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Phone Number</FormLabel>
-                              <FormControl>
-                                <Input placeholder="+62..." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.dob`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Date of Birth</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.gender`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Gender</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select gender" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="male">Male</SelectItem>
-                                  <SelectItem value="female">Female</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.bloodType`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Blood Type</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select blood type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="A">A</SelectItem>
-                                  <SelectItem value="B">B</SelectItem>
-                                  <SelectItem value="AB">AB</SelectItem>
-                                  <SelectItem value="O">O</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                  <CardContent className="pt-6 space-y-8">
+                    {groupedFields.personal.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-2">
+                          Personal Details
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          {groupedFields.personal.map(f => renderField(index, f))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="mt-8 pt-6 border-t space-y-4">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Emergency Contact
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.emergencyContactName`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Contact Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Emergency contact name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.emergencyContactPhone`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Contact Phone</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Emergency contact phone" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`participants.${index}.emergencyContactRelationship`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Relationship</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g. Spouse, Parent, etc." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                    {groupedFields.emergency.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-2">
+                          Emergency Contact
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          {groupedFields.emergency.map(f => renderField(index, f))}
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {groupedFields.custom.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-2">
+                          Additional Information
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          {groupedFields.custom.map(f => renderField(index, f))}
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="mt-8 flex justify-between items-center bg-muted/30 p-4 rounded-lg">
                       <p className="text-xs text-muted-foreground">
