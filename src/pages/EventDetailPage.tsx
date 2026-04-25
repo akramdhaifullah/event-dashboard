@@ -272,12 +272,12 @@ export default function EventDetailPage() {
             </CardContent>
           </Card>
 
-          <EventParticipants event={event} />
-
           <RegistrationSetup 
             event={event} 
             onUpdate={handleRegistrationSetupUpdate} 
           />
+
+          <EventParticipants event={event} />
         </div>
       ) : (
         /* USER VIEW: New 2-column layout with Cart */
