@@ -25,7 +25,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
+    // Cleanup old localStorage cart if it exists to transition to sessionStorage
+    if (localStorage.getItem("cart")) {
+      localStorage.removeItem("cart");
+    }
+
+    const savedCart = sessionStorage.getItem("cart");
     if (savedCart) {
       try {
         setCart(JSON.parse(savedCart));
@@ -36,7 +41,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
+    sessionStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = (item: Omit<CartItem, "id">) => {
