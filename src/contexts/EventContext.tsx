@@ -27,7 +27,7 @@ interface EventContextType {
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
     emergency_contact_relationship?: string;
-    custom_fields?: Record<string, any>;
+    custom_fields?: Record<string, unknown>;
   }, status?: "confirmed" | "pending" | "cancelled", orderId?: string) => Promise<void>;
   addOrder: (order: { id: string; customer_email: string; total_amount: number; status: string }) => Promise<void>;
   updateOrder: (id: string, status: string) => Promise<void>;
@@ -42,7 +42,7 @@ interface EventContextType {
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
     emergency_contact_relationship?: string;
-    custom_fields?: Record<string, any>;
+    custom_fields?: Record<string, unknown>;
   }) => Promise<void>;
   processBulkRegistrationWithPayment: (cart: CartItem[], participantsData: Array<{
     name: string;
@@ -57,7 +57,7 @@ interface EventContextType {
     emergency_contact_relationship?: string;
     categoryId: string;
     eventId: string;
-    custom_fields?: Record<string, any>;
+    custom_fields?: Record<string, unknown>;
   }>) => Promise<void>;
 
   refreshEvents: () => Promise<void>;
@@ -75,9 +75,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [events, setEvents] = useState<RunningEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const { isAdmin, isOrganizer, managedEventIds } = useAuth();
+  const { isAdmin, isOrganizer, managedEventIds, isReady } = useAuth();
 
   const fetchEvents = useCallback(async () => {
+    if (!isReady) return;
     setIsLoading(true);
     try {
       let eventsQuery = supabase.from("events").select("*");
@@ -152,7 +153,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       toast({
         variant: "destructive",
         title: "Sync Error",
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
       });
     } finally {
       setIsLoading(false);
@@ -192,7 +193,59 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-// ... toggleEventVisibility, deleteEvent, addCategory, updateCategory, deleteCategory implementations unchanged
+  const toggleEventVisibility = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase.from("events").update({ visible: !currentStatus }).eq("id", id);
+      if (error) throw error;
+      toast({
+        title: !currentStatus ? "Event visible" : "Event hidden",
+        description: !currentStatus ? "Event is now visible to users." : "Event is now hidden from users.",
+      });
+      await fetchEvents();
+    } catch (error: unknown) {
+      handleSupabaseError(error, "Error updating visibility");
+    }
+  };
+
+  const deleteEvent = async (id: string) => {
+    try {
+      const { error } = await supabase.from("events").delete().eq("id", id);
+      if (error) throw error;
+      await fetchEvents();
+    } catch (error: unknown) {
+      handleSupabaseError(error, "Error deleting event");
+    }
+  };
+
+  const addCategory = async (eventId: string, category: Omit<Category, "id" | "eventId" | "sold">) => {
+    try {
+      const { error } = await supabase.from("ticket_types").insert([{ ...category, event_id: eventId, sold: 0 }]);
+      if (error) throw error;
+      await fetchEvents();
+    } catch (error: unknown) {
+      handleSupabaseError(error, "Error adding category");
+    }
+  };
+
+  const updateCategory = async (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => {
+    try {
+      const { error } = await supabase.from("ticket_types").update(data).eq("id", categoryId);
+      if (error) throw error;
+      await fetchEvents();
+    } catch (error: unknown) {
+      handleSupabaseError(error, "Error updating category");
+    }
+  };
+
+  const deleteCategory = async (eventId: string, categoryId: string) => {
+    try {
+      const { error } = await supabase.from("ticket_types").delete().eq("id", categoryId);
+      if (error) throw error;
+      await fetchEvents();
+    } catch (error: unknown) {
+      handleSupabaseError(error, "Error deleting category");
+    }
+  };
 
   const addParticipant = async (eventId: string, data: { 
     name: string; 
@@ -206,7 +259,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
     emergency_contact_relationship?: string;
-    custom_fields?: Record<string, any>;
+    custom_fields?: Record<string, unknown>;
   }, status: "confirmed" | "pending" | "cancelled" = "confirmed", orderId?: string) => {
     try {
       const { data: existingParticipant, error: checkError } = await supabase
@@ -294,7 +347,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
     emergency_contact_relationship?: string;
-    custom_fields?: Record<string, any>;
+    custom_fields?: Record<string, unknown>;
   }) => {
     try {
       const event = events.find(e => e.id === eventId);
@@ -385,7 +438,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     emergency_contact_relationship?: string;
     categoryId: string;
     eventId: string;
-    custom_fields?: Record<string, any>;
+    custom_fields?: Record<string, unknown>;
   }>) => {
     try {
       if (cart.length === 0) throw new Error("Cart is empty.");

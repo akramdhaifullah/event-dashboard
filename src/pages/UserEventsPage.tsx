@@ -18,8 +18,8 @@ export default function UserEventsPage() {
     return events
       .filter(event => event.visible) // Only show visible events
       .filter(event => 
-        event.name.toLowerCase().includes(search.toLowerCase()) ||
-        event.location.toLowerCase().includes(search.toLowerCase())
+        (event.name?.toLowerCase() || "").includes(search.toLowerCase()) ||
+        (event.location?.toLowerCase() || "").includes(search.toLowerCase())
       );
   }, [events, search]);
 

@@ -185,7 +185,7 @@ export default function RegistrationPage() {
         } as unknown; 
       });
       
-      await processBulkRegistrationWithPayment(eventCartItems, participantsData as any[]);
+      await processBulkRegistrationWithPayment(eventCartItems, participantsData as Parameters<typeof processBulkRegistrationWithPayment>[1]);
       clearCart(); 
       navigate(`/confirm-payment`);
     } catch (error) {
