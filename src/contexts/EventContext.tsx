@@ -411,6 +411,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: 'unpaid'
       });
 
+      await addParticipant(eventId, {
+        ...userData,
+        phone_number: userData.phone,
+        categoryId,
+      }, "pending", orderId);
+
       await executeSnapPayment(
         orderId,
         category.price,
@@ -451,6 +457,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         total_amount: totalAmount,
         status: 'unpaid'
       });
+
+      for (const p of participantsData) {
+        await addParticipant(p.eventId, {
+          ...p,
+          phone_number: p.phone,
+        }, "pending", orderId);
+      }
 
       const item_details = cart.map(item => ({
         id: item.categoryId,
