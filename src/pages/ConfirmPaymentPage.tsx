@@ -1,19 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { CheckCircle2, Clock, XCircle, ArrowRight, Home, Loader2, RefreshCcw, CreditCard } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, ArrowRight, Home, Loader2, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
-import { useToast } from "@/hooks/use-toast";
 
 export default function ConfirmPaymentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(true);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
-  const [isChangingPayment, setIsChangingPayment] = useState(false);
 
   const orderId = searchParams.get("order_id") || "Unknown";
   const statusCode = searchParams.get("status_code");
@@ -45,76 +42,6 @@ export default function ConfirmPaymentPage() {
       setIsVerifying(false);
     }
   }, [orderId]);
-
-  const changePaymentMethod = useCallback(async () => {
-    if (orderId === "Unknown") return;
-
-    setIsChangingPayment(true);
-    try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('id, customer_email, total_amount')
-        .eq('id', orderId)
-        .single();
-
-      if (orderError || !order) throw new Error("Order not found. It may have expired or been cancelled.");
-
-      const { data: items, error: itemsError } = await supabase
-        .from('order_items')
-        .select('item_id, item_name, quantity, unit_price')
-        .eq('order_id', orderId);
-
-      if (itemsError) throw new Error("Failed to load order items.");
-
-      const { data: snapData, error: snapError } = await supabase.functions.invoke('midtrans-snap', {
-        body: {
-          transaction_details: { order_id: orderId, gross_amount: order.total_amount },
-          customer_details: {
-            first_name: order.customer_email.split('@')[0],
-            email: order.customer_email,
-          },
-          item_details: (items || []).map((item) => ({
-            id: item.item_id,
-            price: item.unit_price,
-            quantity: item.quantity,
-            name: item.item_name,
-          })),
-          credit_card: { secure: true },
-        },
-      });
-
-      if (snapError) throw new Error(snapError.message || "Failed to initialize payment.");
-      if (!snapData?.token) throw new Error("Invalid payment token received.");
-
-      window.snap.pay(snapData.token, {
-        onSuccess: (result: any) => {
-          if (result.finish_redirect_url) {
-            window.location.href = result.finish_redirect_url;
-          } else {
-            navigate(`/confirm-payment?order_id=${orderId}&transaction_status=settlement`);
-          }
-        },
-        onPending: (result: any) => {
-          if (result.finish_redirect_url) {
-            window.location.href = result.finish_redirect_url;
-          } else {
-            verifyPayment();
-          }
-          setIsChangingPayment(false);
-        },
-        onError: () => {
-          toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
-          setIsChangingPayment(false);
-        },
-        onClose: () => {
-          setIsChangingPayment(false);
-        },
-      });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Cannot Change Payment Method", description: error.message || "Failed to load payment. Please try again." });
-      setIsChangingPayment(false);
-    }
-  }, [orderId, navigate, verifyPayment, toast]);
 
   useEffect(() => {
     verifyPayment();
@@ -184,19 +111,6 @@ export default function ConfirmPaymentPage() {
                 <>
                   <Button size="lg" onClick={() => verifyPayment()} className="w-full sm:w-auto">
                     Refresh Status <RefreshCcw className="ml-2 h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={changePaymentMethod}
-                    disabled={isChangingPayment}
-                    className="w-full sm:w-auto"
-                  >
-                    {isChangingPayment ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</>
-                    ) : (
-                      <>Change Payment Method <CreditCard className="ml-2 h-4 w-4" /></>
-                    )}
                   </Button>
                   <Button variant="outline" size="lg" onClick={() => navigate("/")} className="w-full sm:w-auto">
                     Back to Home
