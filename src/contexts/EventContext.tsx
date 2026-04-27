@@ -5,8 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "./AuthContext";
 
 interface EventContextType {
-// ... rest of interface
-
+  events: RunningEvent[];
   isLoading: boolean;
   addEvent: (event: Omit<RunningEvent, "id" | "categories" | "participants" | "visible">) => Promise<void>;
   updateEvent: (id: string, data: Partial<Pick<RunningEvent, "name" | "date" | "location" | "description" | "image_url" | "visible" | "registration_setup">>) => Promise<void>;
@@ -394,23 +393,26 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           custom_fields: userData.custom_fields
         };
         window.snap.pay(functionData.token, {
-          onSuccess: async () => {
-            try { 
-              await updateOrder(orderId, "paid");
-              await addParticipant(eventId, participantData, "confirmed", orderId); 
-              resolve(); 
-            } catch (err) { reject(err); }
+          onSuccess: (result: any) => {
+            console.log('Payment Success:', result);
+            if (result.finish_redirect_url) {
+              window.location.href = result.finish_redirect_url;
+            }
+            resolve();
           },
-          onPending: async () => {
-            try { 
-              await updateOrder(orderId, "pending");
-              await addParticipant(eventId, participantData, "pending", orderId); 
-              toast({ title: "Payment Pending", description: "Your payment is being processed. You will be registered once confirmed." });
-              resolve(); 
-            } catch (err) { reject(err); }
+          onPending: (result: any) => {
+            console.log('Payment Pending:', result);
+            if (result.finish_redirect_url) {
+              window.location.href = result.finish_redirect_url;
+            }
+            resolve();
           },
-          onError: () => {
+          onError: (result: any) => {
+            console.error('Payment Error:', result);
             toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
+            if (result.finish_redirect_url) {
+              window.location.href = result.finish_redirect_url;
+            }
             reject(new Error("Payment failed."));
           },
           onClose: () => {
@@ -478,32 +480,26 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return new Promise<void>((resolve, reject) => {
         window.snap.pay(functionData.token, {
-          onSuccess: async () => {
-            try { 
-              await updateOrder(orderId, "paid");
-              for (const p of participantsData) {
-                await addParticipant(p.eventId, {
-                  ...p,
-                  phone_number: p.phone,
-                }, "confirmed", orderId);
-              }
-              resolve(); 
-            } catch (err) { reject(err); }
+          onSuccess: (result: any) => {
+            console.log('Payment Success:', result);
+            if (result.finish_redirect_url) {
+              window.location.href = result.finish_redirect_url;
+            }
+            resolve();
           },
-          onPending: async () => {
-            try { 
-              await updateOrder(orderId, "pending");
-              for (const p of participantsData) {
-                await addParticipant(p.eventId, {
-                  ...p,
-                  phone_number: p.phone,
-                }, "pending", orderId);
-              }
-              resolve(); 
-            } catch (err) { reject(err); }
+          onPending: (result: any) => {
+            console.log('Payment Pending:', result);
+            if (result.finish_redirect_url) {
+              window.location.href = result.finish_redirect_url;
+            }
+            resolve();
           },
-          onError: () => {
+          onError: (result: any) => {
+            console.error('Payment Error:', result);
             toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
+            if (result.finish_redirect_url) {
+              window.location.href = result.finish_redirect_url;
+            }
             reject(new Error("Payment failed."));
           },
           onClose: () => {
