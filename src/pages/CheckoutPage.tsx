@@ -78,7 +78,6 @@ export default function CheckoutPage() {
       
       await processBulkRegistrationWithPayment(cart, participantsData);
       clearCart();
-      navigate("/confirm-payment");
     } catch (error: unknown) {
       setIsSubmitting(false);
       const errorMessage = error instanceof Error ? error.message : "Failed to initialize payment.";

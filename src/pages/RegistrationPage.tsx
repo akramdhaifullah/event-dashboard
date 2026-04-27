@@ -187,7 +187,6 @@ export default function RegistrationPage() {
       
       await processBulkRegistrationWithPayment(eventCartItems, participantsData as Parameters<typeof processBulkRegistrationWithPayment>[1]);
       clearCart(); 
-      navigate(`/confirm-payment`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to initiate registration.";
       toast({
