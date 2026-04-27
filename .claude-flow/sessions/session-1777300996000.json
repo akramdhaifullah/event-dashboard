@@ -1,0 +1,14 @@
+{
+  "id": "session-1777300996000",
+  "startedAt": "2026-04-27T14:43:16.000Z",
+  "cwd": "/Users/nayatama/Documents/Projects/RunRun/event-dashboard",
+  "context": {},
+  "metrics": {
+    "edits": 8,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-04-27T15:19:00.928Z",
+  "duration": 2144929
+}

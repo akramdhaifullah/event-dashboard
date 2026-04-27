@@ -376,6 +376,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
 
+    // Persist snap token so the user can reopen the payment popup later (e.g. change payment method)
+    await supabase.from('orders').update({ snap_token: functionData.token }).eq('id', orderId);
+
     return new Promise<void>((resolve, reject) => {
       window.snap.pay(functionData.token, {
         onSuccess: (result: any) => {

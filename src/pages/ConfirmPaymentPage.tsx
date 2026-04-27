@@ -1,16 +1,32 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { CheckCircle2, Clock, XCircle, ArrowRight, Home, Loader2, RefreshCcw } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, ArrowRight, Home, Loader2, RefreshCcw, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
+
+declare global {
+  interface Window {
+    snap: {
+      pay: (token: string, options: {
+        onSuccess?: (result: unknown) => void;
+        onPending?: (result: unknown) => void;
+        onError?: (result: unknown) => void;
+        onClose?: () => void;
+      }) => void;
+    };
+  }
+}
 
 export default function ConfirmPaymentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(true);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [isChangingPayment, setIsChangingPayment] = useState(false);
 
   const orderId = searchParams.get("order_id") || "Unknown";
   const statusCode = searchParams.get("status_code");
@@ -24,19 +40,16 @@ export default function ConfirmPaymentPage() {
 
     if (showLoading) setIsVerifying(true);
     try {
-      // Using supabase.functions.invoke handles CORS and Auth headers automatically
-      // if the project is correctly configured. 
       const { data, error } = await supabase.functions.invoke("midtrans-verify", {
         body: { orderId },
       });
 
       if (error) throw error;
-      
+
       console.log("Verification result:", data);
       setIsVerified(data.result === true);
     } catch (error) {
       console.error("Verification error:", error);
-      // If backend check fails, we stay in the current state or fallback to URL hint
       setIsVerified(null);
     } finally {
       setIsVerifying(false);
@@ -47,9 +60,83 @@ export default function ConfirmPaymentPage() {
     verifyPayment();
   }, [verifyPayment]);
 
-  // Priority: 
-  // 1. If verified by backend -> Success
-  // 2. If not verified by backend yet, check URL hint (for initial feedback)
+  const handleChangePayment = async () => {
+    if (orderId === "Unknown") return;
+    setIsChangingPayment(true);
+
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select("status, snap_token")
+        .eq("id", orderId)
+        .single();
+
+      if (orderError) throw new Error("Could not load order details.");
+
+      if (order.status === "settlement" || order.status === "capture" || order.status === "paid") {
+        toast({ title: "Already paid", description: "This order has already been paid." });
+        await verifyPayment(false);
+        setIsChangingPayment(false);
+        return;
+      }
+
+      if (order.status === "cancel" || order.status === "deny" || order.status === "expire") {
+        toast({
+          variant: "destructive",
+          title: "Order unavailable",
+          description: "This order has been cancelled or expired. Please start a new order.",
+        });
+        setIsChangingPayment(false);
+        return;
+      }
+
+      if (!order.snap_token) {
+        toast({
+          variant: "destructive",
+          title: "Payment session unavailable",
+          description: "No payment session found for this order. Please contact support.",
+        });
+        setIsChangingPayment(false);
+        return;
+      }
+
+      window.snap.pay(order.snap_token, {
+        onSuccess: (result) => {
+          const r = result as { finish_redirect_url?: string };
+          if (r.finish_redirect_url) {
+            window.location.href = r.finish_redirect_url;
+          } else {
+            verifyPayment();
+          }
+        },
+        onPending: (result) => {
+          const r = result as { finish_redirect_url?: string };
+          if (r.finish_redirect_url) {
+            window.location.href = r.finish_redirect_url;
+          } else {
+            verifyPayment();
+          }
+          setIsChangingPayment(false);
+        },
+        onError: () => {
+          toast({ variant: "destructive", title: "Payment failed", description: "Something went wrong. Please try again." });
+          setIsChangingPayment(false);
+        },
+        onClose: () => {
+          setIsChangingPayment(false);
+        },
+      });
+    } catch (error) {
+      console.error("Change payment error:", error);
+      toast({
+        variant: "destructive",
+        title: "Could not change payment",
+        description: error instanceof Error ? error.message : "Please try again later.",
+      });
+      setIsChangingPayment(false);
+    }
+  };
+
   const isSuccess = isVerified === true || (isVerified === null && (transactionStatus === "settlement" || transactionStatus === "capture"));
   const isPending = !isSuccess && transactionStatus === "pending";
   const isFailed = !isVerifying && !isSuccess && !isPending;
@@ -57,7 +144,7 @@ export default function ConfirmPaymentPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-4 md:p-8 bg-muted/20">
       <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-5 gap-8">
-        
+
         {/* Left Section: Status Message */}
         <div className="md:col-span-3 flex flex-col justify-center space-y-6">
           <div className="space-y-4">
@@ -84,7 +171,7 @@ export default function ConfirmPaymentPage() {
                 </div>
                 <h1 className="text-4xl font-bold tracking-tight text-foreground">Payment Pending</h1>
                 <p className="text-lg text-muted-foreground">
-                  We are currently processing your payment. This usually takes just a few minutes. 
+                  We are currently processing your payment. This usually takes just a few minutes.
                   You will receive an email confirmation once it's complete.
                 </p>
               </>
@@ -102,17 +189,41 @@ export default function ConfirmPaymentPage() {
           </div>
 
           {!isVerifying && (
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 flex-wrap">
               {isSuccess ? (
                 <Button size="lg" onClick={() => navigate("/")} className="w-full sm:w-auto">
                   Back to Home <Home className="ml-2 h-4 w-4" />
                 </Button>
               ) : isPending ? (
                 <>
-                  <Button size="lg" onClick={() => verifyPayment()} className="w-full sm:w-auto">
+                  <Button
+                    size="lg"
+                    variant="default"
+                    onClick={handleChangePayment}
+                    disabled={isChangingPayment}
+                    className="w-full sm:w-auto"
+                  >
+                    {isChangingPayment ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="mr-2 h-4 w-4" />
+                    )}
+                    {isChangingPayment ? "Opening payment..." : "Change Payment Method"}
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => verifyPayment()}
+                    className="w-full sm:w-auto"
+                  >
                     Refresh Status <RefreshCcw className="ml-2 h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="lg" onClick={() => navigate("/")} className="w-full sm:w-auto">
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    onClick={() => navigate("/")}
+                    className="w-full sm:w-auto"
+                  >
                     Back to Home
                   </Button>
                 </>
@@ -152,7 +263,7 @@ export default function ConfirmPaymentPage() {
                   )}
                 </div>
               </div>
-              
+
               <div className="border-b pb-4">
                 <p className="text-sm font-medium text-muted-foreground mb-1">Order ID</p>
                 <p className="font-mono text-sm break-all bg-muted p-2 rounded-md">{orderId}</p>
@@ -162,6 +273,14 @@ export default function ConfirmPaymentPage() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Status Code</p>
                   <p className="text-sm">{statusCode}</p>
+                </div>
+              )}
+
+              {isPending && !isVerifying && (
+                <div className="pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Need to pay via a different method? Use "Change Payment Method" to reopen the payment popup.
+                  </p>
                 </div>
               )}
             </CardContent>

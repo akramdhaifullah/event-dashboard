@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar } from "lucide-react";
+import { Calendar, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function UserNavbar() {
@@ -8,6 +8,7 @@ export function UserNavbar() {
 
   const navItems = [
     { title: "Events", url: "/", icon: Calendar },
+    { title: "My Payments", url: "/my-payments", icon: Receipt },
   ];
 
   return (
