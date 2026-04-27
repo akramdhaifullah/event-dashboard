@@ -30,6 +30,7 @@ interface EventContextType {
   }, status?: "confirmed" | "pending" | "cancelled", orderId?: string) => Promise<void>;
   addOrder: (order: { id: string; customer_email: string; total_amount: number; status: string }) => Promise<void>;
   updateOrder: (id: string, status: string) => Promise<void>;
+  addOrderItems: (items: Array<{ order_id: string; item_id: string; item_name: string; quantity: number; unit_price: number }>) => Promise<void>;
   processRegistrationWithPayment: (eventId: string, categoryId: string, userData: { 
     name: string; 
     email: string; 
@@ -335,6 +336,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const addOrderItems = async (items: Array<{ order_id: string; item_id: string; item_name: string; quantity: number; unit_price: number }>) => {
+    try {
+      const { error } = await supabase.from('order_items').insert(items);
+      if (error) throw error;
+    } catch (error: unknown) {
+      handleSupabaseError(error, "Error adding order items");
+      throw error;
+    }
+  };
+
   const executeSnapPayment = async (
     orderId: string,
     totalAmount: number,
@@ -411,6 +422,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: 'unpaid'
       });
 
+      await addOrderItems([{
+        order_id: orderId,
+        item_id: categoryId,
+        item_name: `${event.name} - ${category.name}`,
+        quantity: 1,
+        unit_price: category.price
+      }]);
+
       await addParticipant(eventId, {
         ...userData,
         phone_number: userData.phone,
@@ -458,6 +477,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: 'unpaid'
       });
 
+      const orderItems = cart.map(item => ({
+        order_id: orderId,
+        item_id: item.categoryId,
+        item_name: `${item.eventName} - ${item.categoryName}`,
+        quantity: item.quantity,
+        unit_price: item.price
+      }));
+
+      await addOrderItems(orderItems);
+
       for (const p of participantsData) {
         await addParticipant(p.eventId, {
           ...p,
@@ -488,7 +517,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <EventContext.Provider value={{ 
         events, isLoading, addEvent, updateEvent, toggleEventVisibility, deleteEvent, 
         addCategory, updateCategory, deleteCategory, addParticipant, addOrder, updateOrder,
-        processRegistrationWithPayment, processBulkRegistrationWithPayment, refreshEvents: fetchEvents 
+        addOrderItems, processRegistrationWithPayment, processBulkRegistrationWithPayment, refreshEvents: fetchEvents 
     }}>
       {children}
     </EventContext.Provider>
