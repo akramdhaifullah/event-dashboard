@@ -335,6 +335,55 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const executeSnapPayment = async (
+    orderId: string,
+    totalAmount: number,
+    customerDetails: { first_name: string; email: string; phone?: string },
+    itemDetails: Array<{ id: string; price: number; quantity: number; name: string }>
+  ): Promise<void> => {
+    const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
+      body: {
+        transaction_details: { order_id: orderId, gross_amount: totalAmount },
+        customer_details: customerDetails,
+        item_details: itemDetails,
+        credit_card: { secure: true },
+      },
+    });
+
+    if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
+
+    return new Promise<void>((resolve, reject) => {
+      window.snap.pay(functionData.token, {
+        onSuccess: (result: any) => {
+          console.log('Payment Success:', result);
+          if (result.finish_redirect_url) {
+            window.location.href = result.finish_redirect_url;
+          }
+          resolve();
+        },
+        onPending: (result: any) => {
+          console.log('Payment Pending:', result);
+          if (result.finish_redirect_url) {
+            window.location.href = result.finish_redirect_url;
+          }
+          resolve();
+        },
+        onError: (result: any) => {
+          console.error('Payment Error:', result);
+          if (result.finish_redirect_url) {
+            window.location.href = result.finish_redirect_url;
+          }
+          toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
+          reject(new Error("Payment failed."));
+        },
+        onClose: () => {
+          toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
+          reject(new Error("Payment cancelled by user."));
+        }
+      });
+    });
+  };
+
   const processRegistrationWithPayment = async (eventId: string, categoryId: string, userData: { 
     name: string; 
     email: string; 
@@ -359,68 +408,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         id: orderId,
         customer_email: userData.email,
         total_amount: category.price,
-        status: 'pending'
+        status: 'unpaid'
       });
 
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
-        body: {
-          transaction_details: { order_id: orderId, gross_amount: category.price },
-          customer_details: { 
-            first_name: userData.name, 
-            email: userData.email,
-            phone: userData.phone 
-          },
-          item_details: [{ id: category.id, price: category.price, quantity: 1, name: `${event.name} - ${category.name}` }],
-          credit_card: { secure: true },
-        },
-      });
-
-      if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
-
-      return new Promise<void>((resolve, reject) => {
-        const participantData = { 
-          name: userData.name, 
-          email: userData.email, 
-          categoryId,
-          bib_name: userData.bib_name,
-          dob: userData.dob,
-          gender: userData.gender,
-          blood_type: userData.blood_type,
-          phone_number: userData.phone,
-          emergency_contact_name: userData.emergency_contact_name,
-          emergency_contact_phone: userData.emergency_contact_phone,
-          emergency_contact_relationship: userData.emergency_contact_relationship,
-          custom_fields: userData.custom_fields
-        };
-        window.snap.pay(functionData.token, {
-          onSuccess: (result: any) => {
-            console.log('Payment Success:', result);
-            if (result.finish_redirect_url) {
-              window.location.href = result.finish_redirect_url;
-            }
-            resolve();
-          },
-          onPending: (result: any) => {
-            console.log('Payment Pending:', result);
-            if (result.finish_redirect_url) {
-              window.location.href = result.finish_redirect_url;
-            }
-            resolve();
-          },
-          onError: (result: any) => {
-            console.error('Payment Error:', result);
-            toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
-            if (result.finish_redirect_url) {
-              window.location.href = result.finish_redirect_url;
-            }
-            reject(new Error("Payment failed."));
-          },
-          onClose: () => {
-            toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
-            reject(new Error("Payment cancelled by user."));
-          }
-        });
-      });
+      await executeSnapPayment(
+        orderId,
+        category.price,
+        { first_name: userData.name, email: userData.email, phone: userData.phone },
+        [{ id: category.id, price: category.price, quantity: 1, name: `${event.name} - ${category.name}` }]
+      );
     } catch (error: unknown) {
       handleSupabaseError(error, "Payment Error");
       throw error;
@@ -453,7 +449,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         id: orderId,
         customer_email: firstEmail,
         total_amount: totalAmount,
-        status: 'pending'
+        status: 'unpaid'
       });
 
       const item_details = cart.map(item => ({
@@ -463,51 +459,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         name: `${item.eventName} - ${item.categoryName}`
       }));
 
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('midtrans-snap', {
-        body: {
-          transaction_details: { order_id: orderId, gross_amount: totalAmount },
-          customer_details: { 
-            first_name: participantsData[0]?.name || "Customer", 
-            email: firstEmail,
-            phone: participantsData[0]?.phone 
-          },
-          item_details,
-          credit_card: { secure: true },
-        },
-      });
-
-      if (functionError) throw new Error(functionError.message || "Failed to initialize payment.");
-
-      return new Promise<void>((resolve, reject) => {
-        window.snap.pay(functionData.token, {
-          onSuccess: (result: any) => {
-            console.log('Payment Success:', result);
-            if (result.finish_redirect_url) {
-              window.location.href = result.finish_redirect_url;
-            }
-            resolve();
-          },
-          onPending: (result: any) => {
-            console.log('Payment Pending:', result);
-            if (result.finish_redirect_url) {
-              window.location.href = result.finish_redirect_url;
-            }
-            resolve();
-          },
-          onError: (result: any) => {
-            console.error('Payment Error:', result);
-            toast({ variant: "destructive", title: "Payment Failed", description: "Something went wrong during payment. Please try again." });
-            if (result.finish_redirect_url) {
-              window.location.href = result.finish_redirect_url;
-            }
-            reject(new Error("Payment failed."));
-          },
-          onClose: () => {
-            toast({ title: "Registration Cancelled", description: "Payment was not completed. You can try again whenever you're ready." });
-            reject(new Error("Payment cancelled by user."));
-          }
-        });
-      });
+      await executeSnapPayment(
+        orderId,
+        totalAmount,
+        { first_name: participantsData[0]?.name || "Customer", email: firstEmail, phone: participantsData[0]?.phone },
+        item_details
+      );
     } catch (error: unknown) {
       handleSupabaseError(error, "Payment Error");
       throw error;
