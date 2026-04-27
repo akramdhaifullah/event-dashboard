@@ -71,18 +71,36 @@ export function RegistrationSetup({ event, onUpdate }: RegistrationSetupProps) {
   };
 
   const handleRemoveField = (id: string) => {
+    const field = fields.find(f => f.id === id);
+    if (field && (field.name === "name" || field.name === "email")) {
+      toast({ 
+        variant: "destructive", 
+        title: "Cannot remove field", 
+        description: `${field.label} is required for registration and cannot be removed.` 
+      });
+      return;
+    }
     const updatedFields = fields.filter(f => f.id !== id);
     setFields(updatedFields);
   };
 
   const handleToggleRequired = (id: string) => {
+    const field = fields.find(f => f.id === id);
+    if (field && (field.name === "name" || field.name === "email")) {
+      return; // Cannot toggle required status for essential fields
+    }
     const updatedFields = fields.map(f => f.id === id ? { ...f, required: !f.required } : f);
     setFields(updatedFields);
   };
 
   const handleSave = async () => {
     try {
-      await onUpdate(fields);
+      // Force name and email to be required just in case
+      const fixedFields = fields.map(f => 
+        (f.name === "name" || f.name === "email") ? { ...f, required: true } : f
+      );
+      await onUpdate(fixedFields);
+      setFields(fixedFields);
       toast({ title: "Setup Saved", description: "Registration configuration has been updated." });
     } catch (error) {
       toast({ variant: "destructive", title: "Save Failed", description: "Could not save registration setup." });
@@ -213,54 +231,50 @@ export function RegistrationSetup({ event, onUpdate }: RegistrationSetupProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {fields.map((field) => (
-              <div 
-                key={field.id} 
-                className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-accent/50 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <GripVertical className="h-4 w-4 text-muted-foreground/30" />
-                  <div>
-                    <p className="text-sm font-medium">{field.label}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {field.type} · {field.group} {field.isCustom && "· Custom"}
-                    </p>
+            {fields.map((field) => {
+              const isEssential = field.name === "name" || field.name === "email";
+              return (
+                <div 
+                  key={field.id} 
+                  className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-accent/50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <GripVertical className="h-4 w-4 text-muted-foreground/30" />
+                    <div>
+                      <p className="text-sm font-medium">{field.label}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {field.type} · {field.group} {field.isCustom && "· Custom"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">Required</Label>
+                      <Switch 
+                        checked={field.required || isEssential} 
+                        disabled={isEssential}
+                        onCheckedChange={() => handleToggleRequired(field.id)} 
+                      />
+                    </div>
+                    {!isEssential && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleRemoveField(field.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">Required</Label>
-                    <Switch 
-                      checked={field.required} 
-                      onCheckedChange={() => handleToggleRequired(field.id)} 
-                    />
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleRemoveField(field.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {fields.length === 0 && (
               <div className="text-center py-12 border-2 border-dashed rounded-lg">
                 <Settings2 className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
                 <p className="text-muted-foreground">No fields configured yet. Click "Add Field" to start.</p>
-              </div>
-            )}
-
-            {fields.length > 0 && !fields.some(f => f.name === "name" || f.name === "email") && (
-              <div className="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg flex gap-3 text-warning-foreground items-start">
-                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                <div className="text-xs">
-                  <p className="font-bold">Missing essential fields</p>
-                  <p>You haven't included Name or Email. While allowed, this might make it difficult to identify participants.</p>
-                </div>
               </div>
             )}
           </div>

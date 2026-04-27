@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { RunningEvent, Category, Participant, CartItem } from "@/data/types";
+import { RunningEvent, Category, Participant, CartItem, RegistrationField } from "@/data/types";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "./AuthContext";
@@ -70,6 +70,12 @@ export const useEvents = () => {
   if (!ctx) throw new Error("useEvents must be used within EventProvider");
   return ctx;
 };
+
+const DEFAULT_REGISTRATION_SETUP: RegistrationField[] = [
+  { id: "1", name: "name", label: "Full Name", type: "text", required: true, group: "personal", isCustom: false },
+  { id: "2", name: "email", label: "Email Address", type: "email", required: true, group: "personal", isCustom: false },
+];
+
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [events, setEvents] = useState<RunningEvent[]>([]);
@@ -175,7 +181,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addEvent = async (data: Omit<RunningEvent, "id" | "categories" | "participants" | "visible">) => {
     try {
-      const { error } = await supabase.from("events").insert([{ ...data, visible: false }]);
+      const { error } = await supabase.from("events").insert([{ 
+        ...data, 
+        visible: false,
+        registration_setup: DEFAULT_REGISTRATION_SETUP
+      }]);
       if (error) throw error;
       await fetchEvents();
     } catch (error: unknown) {
@@ -261,6 +271,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     emergency_contact_relationship?: string;
     custom_fields?: Record<string, unknown>;
   }, status: "confirmed" | "pending" | "cancelled" = "confirmed", orderId?: string) => {
+    if (!data.name || !data.email) {
+      throw new Error("Full Name and Email Address are required for registration.");
+    }
     try {
       const { data: existingParticipant, error: checkError } = await supabase
         .from("participants")
