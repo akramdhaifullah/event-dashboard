@@ -1,4 +1,4 @@
-# 🏃‍♂️ LariTerus Web (Cozy Dashboard)
+# 🏃‍♂️ LariTerus Event Dashboard
 
 A modern, high-performance event management dashboard built for running events. **LariTerus** provides a seamless experience for both event organizers and participants, featuring a robust admin panel and an intuitive user registration flow.
 
