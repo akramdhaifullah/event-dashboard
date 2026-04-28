@@ -26,7 +26,7 @@ This project is a modern event management dashboard built with React, Vite, and 
   - `UserEventsPage.tsx`: Event browsing and registration for users.
   - `ProfilePage.tsx`: User profile management.
 - **`src/lib/supabase.ts`**: Supabase client configuration.
-- **`src/data/types.ts`**: TypeScript interfaces for `RunningEvent`, `TicketType`, `Participant`, and `Profile`.
+- **`src/data/types.ts`**: TypeScript interfaces for `RunningEvent`, `Category`, `Participant`, and `Profile`.
 
 ## Building and Running
 

@@ -106,20 +106,20 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         eventsQuery = eventsQuery.eq("visible", true);
       }
 
-      const [eventsRes, ticketsRes, participantsRes] = await Promise.all([
+      const [eventsRes, categoriesRes, participantsRes] = await Promise.all([
         eventsQuery,
-        supabase.from("ticket_types").select("*"),
+        supabase.from("event_categories").select("*"),
         supabase.from("participants").select("*")
       ]);
 
       if (eventsRes.error) throw eventsRes.error;
-      if (ticketsRes.error) throw ticketsRes.error;
+      if (categoriesRes.error) throw categoriesRes.error;
       if (participantsRes.error) throw participantsRes.error;
 
       const combinedEvents: RunningEvent[] = eventsRes.data.map((event) => ({
         ...event,
         visible: event.visible ?? true,
-        categories: ticketsRes.data
+        categories: categoriesRes.data
           .filter((t) => t.event_id === event.id)
           .map(t => ({
             id: t.id,
@@ -132,14 +132,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         participants: participantsRes.data
           .filter((p) => p.event_id === event.id)
           .map(p => {
-            const ticketType = ticketsRes.data.find(t => t.id === p.ticket_type_id);
+            const eventCategory = categoriesRes.data.find(t => t.id === p.event_category_id);
             return {
               id: p.id,
               eventId: p.event_id,
               name: p.name,
               email: p.email,
-              categoryId: p.ticket_type_id,
-              categoryName: ticketType ? ticketType.name : "Unknown",
+              categoryId: p.event_category_id,
+              categoryName: eventCategory ? eventCategory.name : "Unknown",
               registrationDate: p.registration_date,
               status: p.status,
               bib_name: p.bib_name,
@@ -229,7 +229,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addCategory = async (eventId: string, category: Omit<Category, "id" | "eventId" | "sold">) => {
     try {
-      const { error } = await supabase.from("ticket_types").insert([{ ...category, event_id: eventId, sold: 0 }]);
+      const { error } = await supabase.from("event_categories").insert([{ ...category, event_id: eventId, sold: 0 }]);
       if (error) throw error;
       await fetchEvents();
     } catch (error: unknown) {
@@ -239,7 +239,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateCategory = async (eventId: string, categoryId: string, data: Partial<Pick<Category, "name" | "price" | "capacity">>) => {
     try {
-      const { error } = await supabase.from("ticket_types").update(data).eq("id", categoryId);
+      const { error } = await supabase.from("event_categories").update(data).eq("id", categoryId);
       if (error) throw error;
       await fetchEvents();
     } catch (error: unknown) {
@@ -249,7 +249,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteCategory = async (eventId: string, categoryId: string) => {
     try {
-      const { error } = await supabase.from("ticket_types").delete().eq("id", categoryId);
+      const { error } = await supabase.from("event_categories").delete().eq("id", categoryId);
       if (error) throw error;
       await fetchEvents();
     } catch (error: unknown) {
@@ -280,7 +280,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .select("id, status")
         .eq("event_id", eventId)
         .eq("email", data.email)
-        .eq("ticket_type_id", data.categoryId)
+        .eq("event_category_id", data.categoryId)
         .maybeSingle();
 
       if (checkError) throw checkError;
@@ -310,7 +310,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           event_id: eventId,
           name: data.name,
           email: data.email,
-          ticket_type_id: data.categoryId,
+          event_category_id: data.categoryId,
           registration_date: new Date().toISOString(),
         }]);
         if (participantError) throw participantError;
@@ -318,8 +318,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const event = events.find(e => e.id === eventId);
         const category = event?.categories.find(t => t.id === data.categoryId);
         if (category) {
-          const { error: ticketError } = await supabase.from("ticket_types").update({ sold: (category.sold || 0) + 1 }).eq("id", data.categoryId);
-          if (ticketError) throw ticketError;
+          const { error: categoryError } = await supabase.from("event_categories").update({ sold: (category.sold || 0) + 1 }).eq("id", data.categoryId);
+          if (categoryError) throw categoryError;
         }
       }
       await fetchEvents();
