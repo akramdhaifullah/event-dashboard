@@ -14,23 +14,39 @@ export default function ConfirmPaymentPage() {
   const [isVerifying, setIsVerifying] = useState(true);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChangingPayment, setIsChangingPayment] = useState(false);
+  const [displayOrderId, setDisplayOrderId] = useState<string>("");
 
-  const orderId = searchParams.get("order_id") || "Unknown";
+  // In this new flow, Midtrans returns our internal transactions.id as order_id
+  const midtransOrderId = searchParams.get("order_id") || "Unknown";
   const statusCode = searchParams.get("status_code");
   const transactionStatus = searchParams.get("transaction_status") || "pending";
 
+  const fetchTransactionDetails = useCallback(async () => {
+    if (midtransOrderId === "Unknown") return;
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('order_id')
+        .eq('id', midtransOrderId)
+        .single();
+      
+      if (error) throw error;
+      if (data) setDisplayOrderId(data.order_id);
+    } catch (error) {
+      console.error("Error fetching transaction details:", error);
+    }
+  }, [midtransOrderId]);
+
   const verifyPayment = useCallback(async (showLoading = true) => {
-    if (orderId === "Unknown") {
+    if (midtransOrderId === "Unknown") {
       setIsVerifying(false);
       return;
     }
 
     if (showLoading) setIsVerifying(true);
     try {
-      // Using supabase.functions.invoke handles CORS and Auth headers automatically
-      // if the project is correctly configured. 
       const { data, error } = await supabase.functions.invoke("midtrans-verify", {
-        body: { orderId },
+        body: { orderId: midtransOrderId },
       });
 
       if (error) throw error;
@@ -39,41 +55,73 @@ export default function ConfirmPaymentPage() {
       setIsVerified(data.result === true);
     } catch (error) {
       console.error("Verification error:", error);
-      // If backend check fails, we stay in the current state or fallback to URL hint
       setIsVerified(null);
     } finally {
       setIsVerifying(false);
     }
-  }, [orderId]);
+  }, [midtransOrderId]);
 
   const changePaymentMethod = useCallback(async () => {
-    if (orderId === "Unknown") return;
+    if (midtransOrderId === "Unknown") return;
 
     setIsChangingPayment(true);
     try {
+      // First, find the original order associated with this transaction
+      const { data: transaction, error: transError } = await supabase
+        .from('transactions')
+        .select('order_id')
+        .eq('id', midtransOrderId)
+        .single();
+
+      if (transError || !transaction) throw new Error("Transaction record not found.");
+      const originalOrderId = transaction.order_id;
+
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .select('id, customer_email, total_amount')
-        .eq('id', orderId)
+        .eq('id', originalOrderId)
         .single();
 
-      if (orderError || !order) throw new Error("Order not found. It may have expired or been cancelled.");
+      if (orderError || !order) throw new Error("Order not found.");
 
       const { data: items, error: itemsError } = await supabase
         .from('order_items')
         .select('item_id, item_name, quantity, unit_price')
-        .eq('order_id', orderId);
+        .eq('order_id', originalOrderId);
 
       if (itemsError) throw new Error("Failed to load order items.");
 
+      // Create a NEW transaction intent for the new payment method
+      const { data: newTransaction, error: newTransError } = await supabase
+        .from('transactions')
+        .insert([{
+          order_id: originalOrderId,
+          transaction_status: 'pending_snap'
+        }])
+        .select('id')
+        .single();
+
+      if (newTransError) throw newTransError;
+      const internalTransactionID = newTransaction.id;
+
+      const { data: participants, error: participantsError } = await supabase
+        .from('participants')
+        .select('name, email')
+        .eq('order_id', originalOrderId);
+
+      if (participantsError || !participants || participants.length === 0) {
+        throw new Error("No participants found for this order.");
+      }
+
+      // Use the first participant as the primary customer for Midtrans
+      const primaryParticipant = participants[0];
+
       const { data: snapData, error: snapError } = await supabase.functions.invoke('midtrans-snap', {
         body: {
-          // Append timestamp to order_id to avoid Midtrans duplicate ID error
-          // The backend webhook should ideally handle this by splitting at the suffix
-          transaction_details: { order_id: `${orderId}-${Date.now()}`, gross_amount: order.total_amount },
+          transaction_details: { order_id: internalTransactionID, gross_amount: order.total_amount },
           customer_details: {
-            first_name: order.customer_email.split('@')[0],
-            email: order.customer_email,
+            first_name: primaryParticipant.name,
+            email: primaryParticipant.email,
           },
           item_details: (items || []).map((item) => ({
             id: item.item_id,
@@ -93,14 +141,14 @@ export default function ConfirmPaymentPage() {
           if (result.finish_redirect_url) {
             window.location.href = result.finish_redirect_url;
           } else {
-            navigate(`/confirm-payment?order_id=${orderId}&transaction_status=settlement`);
+            navigate(`/confirm-payment?order_id=${internalTransactionID}&transaction_status=settlement`);
           }
         },
         onPending: (result: any) => {
           if (result.finish_redirect_url) {
             window.location.href = result.finish_redirect_url;
           } else {
-            verifyPayment();
+            navigate(`/confirm-payment?order_id=${internalTransactionID}&transaction_status=pending`, { replace: true });
           }
           setIsChangingPayment(false);
         },
@@ -116,11 +164,12 @@ export default function ConfirmPaymentPage() {
       toast({ variant: "destructive", title: "Cannot Change Payment Method", description: error.message || "Failed to load payment. Please try again." });
       setIsChangingPayment(false);
     }
-  }, [orderId, navigate, verifyPayment, toast]);
+  }, [midtransOrderId, navigate, toast]);
 
   useEffect(() => {
     verifyPayment();
-  }, [verifyPayment]);
+    fetchTransactionDetails();
+  }, [verifyPayment, fetchTransactionDetails]);
 
   // Priority: 
   // 1. If verified by backend -> Success
@@ -243,7 +292,7 @@ export default function ConfirmPaymentPage() {
               
               <div className="border-b pb-4">
                 <p className="text-sm font-medium text-muted-foreground mb-1">Order ID</p>
-                <p className="font-mono text-sm break-all bg-muted p-2 rounded-md">{orderId}</p>
+                <p className="font-mono text-sm break-all bg-muted p-2 rounded-md">{displayOrderId || midtransOrderId}</p>
               </div>
 
               {statusCode && (

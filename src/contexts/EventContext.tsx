@@ -435,6 +435,20 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: 'unpaid'
       });
 
+      // Insert transaction intent and get internal ID
+      const { data: transactionData, error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          order_id: orderId,
+          transaction_status: 'pending_snap',
+          total_amount: category.price
+        }])
+        .select('id')
+        .single();
+
+      if (transactionError) throw transactionError;
+      const internalTransactionID = transactionData.id;
+
       await addOrderItems([{
         order_id: orderId,
         item_id: categoryId,
@@ -450,7 +464,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }, "pending", orderId);
 
       await executeSnapPayment(
-        orderId,
+        internalTransactionID,
         category.price,
         { first_name: userData.name, email: userData.email, phone: userData.phone },
         [{ id: category.id, price: category.price, quantity: 1, name: `${event.name} - ${category.name}` }]
@@ -490,6 +504,19 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: 'unpaid'
       });
 
+      // Insert transaction intent and get internal ID
+      const { data: transactionData, error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          order_id: orderId,
+          transaction_status: 'pending_snap'
+        }])
+        .select('id')
+        .single();
+
+      if (transactionError) throw transactionError;
+      const internalTransactionID = transactionData.id;
+
       const orderItems = cart.map(item => ({
         order_id: orderId,
         item_id: item.categoryId,
@@ -515,7 +542,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
 
       await executeSnapPayment(
-        orderId,
+        internalTransactionID,
         totalAmount,
         { first_name: participantsData[0]?.name || "Customer", email: firstEmail, phone: participantsData[0]?.phone },
         item_details
